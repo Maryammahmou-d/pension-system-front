@@ -44,7 +44,7 @@ export default function Login() {
     } catch (err) {
       const msg = axios.isAxiosError(err)
         ? (err.response?.data?.error ?? err.message)
-        : 'Login failed';
+        : (err instanceof Error ? err.message : 'Login failed');
       setError(typeof msg === 'string' ? msg : 'Login failed');
     } finally {
       setSubmitting(false);
@@ -135,7 +135,7 @@ export default function Login() {
             fontSize: 22, fontWeight: 700, color: 'var(--kaf-text)',
             letterSpacing: '-0.015em', margin: 0,
           }}>
-            KAF AML Screening
+            KAF Rubix Pension
           </h1>
           <p style={{
             marginTop: 8, color: 'var(--kaf-muted)', fontSize: 12.5,

@@ -1,7 +1,7 @@
 import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
-  LayoutDashboard, UserSearch, Users, UploadCloud, ClipboardList,
+  LayoutDashboard,
   Sun, Moon, LogOut, ShieldCheck, UserCog,
 } from 'lucide-react';
 import { useTheme } from '../lib/theme';
@@ -22,21 +22,7 @@ const ALL_SECTIONS: NavSection[] = [
   {
     title: 'Overview',
     items: [
-      { to: '/', label: 'Dashboard', icon: LayoutDashboard, end: true, permission: 'permViewDashboard' },
-    ],
-  },
-  {
-    title: 'Screening',
-    items: [
-      { to: '/check', label: 'AML Check', icon: UserSearch, permission: 'permRunAmlCheck' },
-      { to: '/batch', label: 'Policy Screening', icon: Users, permission: 'permRunBatchCheck' },
-    ],
-  },
-  {
-    title: 'Data',
-    items: [
-      { to: '/lists', label: 'List Management', icon: UploadCloud, permission: 'permViewLists' },
-      { to: '/audit', label: 'Audit Log', icon: ClipboardList, permission: 'permViewAuditLog' },
+      { to: '/', label: 'Home', icon: LayoutDashboard, end: true },
     ],
   },
   {
@@ -131,7 +117,7 @@ export default function Layout() {
             marginTop: 10,
             fontWeight: 700,
           }}>
-            AML Screening
+            Rubix Pension
           </p>
         </div>
 

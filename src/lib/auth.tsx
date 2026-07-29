@@ -1,7 +1,25 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import type { ReactNode } from 'react';
-import { authApi, tokenStorage, userStorage } from './api';
+import { tokenStorage, userStorage } from './api';
 import type { ChangePasswordRequest, LoginRequest, PermissionKey, UserDto } from '../types';
+
+const MOCK_USER: UserDto = {
+  id: 1,
+  username: 'admin',
+  email: 'admin@rubix.local',
+  fullName: 'Administrator',
+  isSuperuser: true,
+  isActive: true,
+  mustChangePassword: false,
+  permViewDashboard: true,
+  permViewAuditLog: true,
+  permViewFlaggedRecords: true,
+  permRunAmlCheck: true,
+  permRunBatchCheck: true,
+  permViewLists: true,
+  permManageLists: true,
+  permUploadLists: true,
+};
 
 interface AuthState {
   user: UserDto | null;
@@ -20,44 +38,31 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<UserDto | null>(() => userStorage.get());
   const [loading, setLoading] = useState<boolean>(() => !!tokenStorage.get());
 
-  // Refresh /me on mount if we have a stale token to validate it and pick up
-  // any permission changes since the last login.
+  // Restore session from localStorage on mount (mock — no backend call needed).
   useEffect(() => {
-    if (!tokenStorage.get()) {
-      setLoading(false);
-      return;
-    }
-    let cancelled = false;
-    authApi.me()
-      .then((u) => {
-        if (cancelled) return;
-        userStorage.set(u);
-        setUser(u);
-      })
-      .catch(() => {
-        // 401 handler in api.ts already cleared the token; just clear state.
-        if (!cancelled) setUser(null);
-      })
-      .finally(() => {
-        if (!cancelled) setLoading(false);
-      });
-    return () => { cancelled = true; };
+    const token = tokenStorage.get();
+    if (!token) { setLoading(false); return; }
+    const stored = userStorage.get();
+    if (stored) setUser(stored);
+    setLoading(false);
   }, []);
 
   // Listen for the global "unauthorized" event triggered by the axios
   // 401 interceptor — clears in-memory user state.
   useEffect(() => {
     const handler = () => setUser(null);
-    window.addEventListener('kaf-aml:unauthorized', handler);
-    return () => window.removeEventListener('kaf-aml:unauthorized', handler);
+    window.addEventListener('kaf-rubix:unauthorized', handler);
+    return () => window.removeEventListener('kaf-rubix:unauthorized', handler);
   }, []);
 
   const login = useCallback(async (req: LoginRequest) => {
-    const res = await authApi.login(req);
-    tokenStorage.set(res.token);
-    userStorage.set(res.user);
-    setUser(res.user);
-    return res.user;
+    if (req.identifier !== 'admin' || req.password !== 'admin') {
+      throw Object.assign(new Error('Invalid credentials. Use admin / admin.'), { isAuthError: true });
+    }
+    tokenStorage.set('mock-rubix-token');
+    userStorage.set(MOCK_USER);
+    setUser(MOCK_USER);
+    return MOCK_USER;
   }, []);
 
   const logout = useCallback(() => {
@@ -65,17 +70,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(null);
   }, []);
 
-  const changePassword = useCallback(async (req: ChangePasswordRequest) => {
-    const updated = await authApi.changePassword(req);
-    userStorage.set(updated);
-    setUser(updated);
-    return updated;
+  const changePassword = useCallback(async (_req: ChangePasswordRequest) => {
+    const stored = userStorage.get() ?? MOCK_USER;
+    userStorage.set(stored);
+    setUser(stored);
+    return stored;
   }, []);
 
   const refresh = useCallback(async () => {
-    const u = await authApi.me();
-    userStorage.set(u);
-    setUser(u);
+    const stored = userStorage.get() ?? MOCK_USER;
+    userStorage.set(stored);
+    setUser(stored);
   }, []);
 
   const has = useCallback((perm: PermissionKey) => {

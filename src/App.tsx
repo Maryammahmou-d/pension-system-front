@@ -1,11 +1,7 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import Layout from './components/Layout';
 import ProtectedRoute from './components/ProtectedRoute';
-import Dashboard from './pages/Dashboard';
-import AmlCheck from './pages/AmlCheck';
-import BatchCheck from './pages/BatchCheck';
-import ListManagement from './pages/ListManagement';
-import AuditLogPage from './pages/AuditLog';
+import Home from './pages/Home';
 import Login from './pages/Login';
 import ChangePassword from './pages/ChangePassword';
 import UserManagement from './pages/UserManagement';
@@ -35,11 +31,7 @@ function App() {
                 </ProtectedRoute>
               }
             >
-              <Route index element={<ProtectedRoute permission="permViewDashboard"><Dashboard /></ProtectedRoute>} />
-              <Route path="check" element={<ProtectedRoute permission="permRunAmlCheck"><AmlCheck /></ProtectedRoute>} />
-              <Route path="batch" element={<ProtectedRoute permission="permRunBatchCheck"><BatchCheck /></ProtectedRoute>} />
-              <Route path="lists" element={<ProtectedRoute permission="permViewLists"><ListManagement /></ProtectedRoute>} />
-              <Route path="audit" element={<ProtectedRoute permission="permViewAuditLog"><AuditLogPage /></ProtectedRoute>} />
+              <Route index element={<Home />} />
               <Route path="users" element={<ProtectedRoute superuserOnly><UserManagement /></ProtectedRoute>} />
             </Route>
             <Route path="*" element={<Navigate to="/" replace />} />
