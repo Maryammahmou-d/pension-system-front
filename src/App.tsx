@@ -1,0 +1,53 @@
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import Layout from './components/Layout';
+import ProtectedRoute from './components/ProtectedRoute';
+import Dashboard from './pages/Dashboard';
+import AmlCheck from './pages/AmlCheck';
+import BatchCheck from './pages/BatchCheck';
+import ListManagement from './pages/ListManagement';
+import AuditLogPage from './pages/AuditLog';
+import Login from './pages/Login';
+import ChangePassword from './pages/ChangePassword';
+import UserManagement from './pages/UserManagement';
+import { ThemeProvider } from './lib/theme';
+import { AuthProvider } from './lib/auth';
+
+function App() {
+  return (
+    <ThemeProvider>
+      <AuthProvider>
+        <BrowserRouter>
+          <Routes>
+            <Route path="/login" element={<Login />} />
+            <Route
+              path="/change-password"
+              element={
+                <ProtectedRoute>
+                  <ChangePassword />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/"
+              element={
+                <ProtectedRoute>
+                  <Layout />
+                </ProtectedRoute>
+              }
+            >
+              <Route index element={<ProtectedRoute permission="permViewDashboard"><Dashboard /></ProtectedRoute>} />
+              <Route path="check" element={<ProtectedRoute permission="permRunAmlCheck"><AmlCheck /></ProtectedRoute>} />
+              <Route path="batch" element={<ProtectedRoute permission="permRunBatchCheck"><BatchCheck /></ProtectedRoute>} />
+              <Route path="lists" element={<ProtectedRoute permission="permViewLists"><ListManagement /></ProtectedRoute>} />
+              <Route path="audit" element={<ProtectedRoute permission="permViewAuditLog"><AuditLogPage /></ProtectedRoute>} />
+              <Route path="users" element={<ProtectedRoute superuserOnly><UserManagement /></ProtectedRoute>} />
+            </Route>
+            <Route path="*" element={<Navigate to="/" replace />} />
+          </Routes>
+        </BrowserRouter>
+      </AuthProvider>
+    </ThemeProvider>
+  );
+}
+
+export default App;

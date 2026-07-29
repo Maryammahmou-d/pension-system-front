@@ -1,0 +1,912 @@
+@import "tailwindcss";
+
+/* ─── KAF Design Tokens (Dark Theme) ─── */
+:root {
+  /* Brand — brighter KAF purple for dark backgrounds */
+  --kaf-purple: #9333ea;
+  --kaf-purple-hover: #a855f7;
+  --kaf-purple-light: #c084fc;
+  --kaf-purple-deep: #6B027D;
+  --kaf-purple-bg: rgba(147, 51, 234, 0.10);
+  --kaf-purple-border: rgba(147, 51, 234, 0.28);
+  --kaf-purple-glow: rgba(147, 51, 234, 0.22);
+
+  /* Surfaces */
+  --kaf-bg: #07050f;
+  --kaf-surface-1: #0e0b1e;
+  --kaf-surface-2: #16122a;
+  --kaf-surface-3: #1e1836;
+  --kaf-surface-4: #261f40;
+  --kaf-sidebar: #090714;
+  --kaf-code-bg: #1a1830;
+
+  /* Text */
+  --kaf-dark: #f0e8ff;
+  --kaf-text: #e2d8f5;
+  --kaf-muted: #8a78a8;
+  --kaf-muted-2: #564d6e;
+
+  /* Borders */
+  --kaf-border: rgba(255, 255, 255, 0.07);
+  --kaf-border-2: rgba(255, 255, 255, 0.12);
+  --kaf-white: var(--kaf-surface-1);
+
+  /* Semantics */
+  --kaf-success: #10b981;
+  --kaf-success-bg: rgba(16, 185, 129, 0.12);
+  --kaf-warning: #f59e0b;
+  --kaf-warning-bg: rgba(245, 158, 11, 0.12);
+  --kaf-error: #ef4444;
+  --kaf-error-bg: rgba(239, 68, 68, 0.12);
+  --kaf-info: #3b82f6;
+  --kaf-info-bg: rgba(59, 130, 246, 0.12);
+
+  /* Elevation */
+  --shadow-sm: 0 1px 4px rgba(0, 0, 0, .5), 0 1px 2px rgba(0, 0, 0, .3);
+  --shadow-md: 0 4px 16px rgba(0, 0, 0, .55), 0 2px 4px rgba(0, 0, 0, .3);
+  --shadow-lg: 0 8px 32px rgba(0, 0, 0, .65), 0 4px 8px rgba(0, 0, 0, .3);
+  --shadow-glow: 0 0 24px rgba(147, 51, 234, 0.28);
+  --shadow-glow-sm: 0 0 12px rgba(147, 51, 234, 0.20);
+
+  /* Misc */
+  --radius: 12px;
+  --ease: cubic-bezier(.4, 0, .2, 1);
+}
+
+/* ─── Light Theme Overrides ─── */
+:root[data-theme="light"] {
+  --kaf-purple: #7c2fc6;
+  --kaf-purple-hover: #6B027D;
+  --kaf-purple-light: #6B027D;
+  --kaf-purple-deep: #4a0160;
+  --kaf-purple-bg: rgba(124, 47, 198, 0.08);
+  --kaf-purple-border: rgba(124, 47, 198, 0.22);
+  --kaf-purple-glow: rgba(124, 47, 198, 0.18);
+
+  --kaf-bg: #f7f4fb;
+  --kaf-surface-1: #ffffff;
+  --kaf-surface-2: #faf6fd;
+  --kaf-surface-3: #f2ebf8;
+  --kaf-surface-4: #e8dbef;
+  --kaf-sidebar: #ffffff;
+  --kaf-code-bg: #f5eefa;
+
+  --kaf-dark: #1a0b24;
+  --kaf-text: #2e1a3a;
+  --kaf-muted: #6b5a7a;
+  --kaf-muted-2: #9a88ab;
+
+  --kaf-border: rgba(107, 2, 125, 0.10);
+  --kaf-border-2: rgba(107, 2, 125, 0.18);
+
+  --kaf-success: #059669;
+  --kaf-success-bg: rgba(5, 150, 105, 0.10);
+  --kaf-warning: #d97706;
+  --kaf-warning-bg: rgba(217, 119, 6, 0.10);
+  --kaf-error: #dc2626;
+  --kaf-error-bg: rgba(220, 38, 38, 0.10);
+  --kaf-info: #2563eb;
+  --kaf-info-bg: rgba(37, 99, 235, 0.10);
+
+  --shadow-sm: 0 1px 3px rgba(107, 2, 125, .06), 0 1px 2px rgba(0, 0, 0, .04);
+  --shadow-md: 0 4px 14px rgba(107, 2, 125, .08), 0 2px 4px rgba(0, 0, 0, .04);
+  --shadow-lg: 0 8px 28px rgba(107, 2, 125, .12), 0 4px 8px rgba(0, 0, 0, .05);
+  --shadow-glow: 0 0 22px rgba(124, 47, 198, 0.15);
+  --shadow-glow-sm: 0 0 10px rgba(124, 47, 198, 0.12);
+}
+
+:root[data-theme="light"] {
+  color-scheme: light;
+}
+
+/* Light-theme-specific overrides for specific patterns */
+:root[data-theme="light"] .kaf-table thead tr {
+  background: linear-gradient(90deg,
+      rgba(107, 2, 125, 0.95) 0%,
+      rgba(124, 47, 198, 0.90) 50%,
+      rgba(147, 51, 234, 0.82) 100%);
+}
+
+:root[data-theme="light"] .kaf-table thead th {
+  background: transparent;
+  color: #ffffff;
+}
+
+:root[data-theme="light"] .kaf-table tbody tr:nth-child(even) td {
+  background: rgba(107, 2, 125, 0.025);
+}
+
+:root[data-theme="light"] .kaf-page-title {
+  background: linear-gradient(135deg, #1a0b24 0%, var(--kaf-purple) 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+}
+
+:root[data-theme="light"] .badge-active {
+  background: rgba(124, 47, 198, 0.12);
+  color: var(--kaf-purple);
+  box-shadow: 0 0 8px rgba(124, 47, 198, 0.08);
+}
+
+:root[data-theme="light"] .kaf-textarea {
+  color: #2e1a3a;
+  background: #faf6fd;
+}
+
+:root[data-theme="light"] ::-webkit-scrollbar-thumb {
+  background: rgba(124, 47, 198, .35);
+}
+
+:root[data-theme="light"] .kaf-nav-item {
+  color: #6b5a7a;
+}
+
+:root[data-theme="light"] .kaf-nav-item:hover {
+  background: rgba(107, 2, 125, .08);
+  color: #4a0160;
+  border-left-color: rgba(107, 2, 125, .3);
+}
+
+:root[data-theme="light"] .kaf-nav-item--active {
+  background: rgba(107, 2, 125, .13);
+  color: #3b0050;
+  border-left-color: var(--kaf-purple);
+  box-shadow: inset 0 0 12px rgba(107, 2, 125, .07);
+}
+
+:root[data-theme="light"] .kaf-nav-item--active:hover {
+  color: #3b0050;
+}
+
+/* Callouts — override pale dark-mode text colors with saturated light-mode ones */
+:root[data-theme="light"] .kaf-callout.error {
+  color: #b91c1c;
+  background: rgba(220, 38, 38, 0.08);
+}
+
+:root[data-theme="light"] .kaf-callout.warn {
+  color: #b45309;
+  background: rgba(217, 119, 6, 0.08);
+}
+
+:root[data-theme="light"] .kaf-callout.ok {
+  color: #047857;
+  background: rgba(5, 150, 105, 0.08);
+}
+
+/* Class badges — replace pale reds/ambers with deeper tones in light mode */
+:root[data-theme="light"] .badge-classA {
+  background: rgba(220, 38, 38, 0.10);
+  color: #b91c1c;
+  border-color: rgba(220, 38, 38, 0.32);
+}
+
+:root[data-theme="light"] .badge-classD {
+  background: rgba(217, 119, 6, 0.10);
+  color: #b45309;
+  border-color: rgba(217, 119, 6, 0.32);
+}
+
+/* Textarea & code inline — use dark purple text on light background */
+:root[data-theme="light"] .kaf-textarea {
+  color: var(--kaf-text);
+}
+
+:root[data-theme="light"] .kaf-code-inline {
+  color: var(--kaf-purple-deep);
+}
+
+/* Styled select: remove browser default chrome, add custom purple chevron */
+.kaf-select {
+  appearance: none;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  padding-right: 34px !important;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%239333ea' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'><polyline points='6 9 12 15 18 9'/></svg>");
+  background-repeat: no-repeat;
+  background-position: right 12px center;
+  background-size: 12px 12px;
+}
+
+.kaf-select:focus {
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23a855f7' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'><polyline points='6 9 12 15 18 9'/></svg>");
+}
+
+:root[data-theme="light"] .kaf-select {
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%236B027D' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'><polyline points='6 9 12 15 18 9'/></svg>");
+}
+
+/* Status badges — use deeper, more saturated tones in light mode */
+:root[data-theme="light"] .badge-flagged {
+  background: rgba(220, 38, 38, 0.10);
+  color: #b91c1c;
+  border-color: rgba(220, 38, 38, 0.32);
+}
+
+:root[data-theme="light"] .badge-clear {
+  background: rgba(5, 150, 105, 0.10);
+  color: #047857;
+  border-color: rgba(5, 150, 105, 0.30);
+}
+
+:root[data-theme="light"] .badge-terrorism {
+  background: rgba(217, 119, 6, 0.10);
+  color: #b45309;
+  border-color: rgba(217, 119, 6, 0.30);
+}
+
+/* ─── Base ─── */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html {
+  scroll-behavior: smooth;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  color-scheme: dark;
+}
+
+body {
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  font-size: 14px;
+  line-height: 1.7;
+  color: var(--kaf-text);
+  background: var(--kaf-bg);
+}
+
+a {
+  text-decoration: none;
+  color: inherit;
+}
+
+/* ─── Scrollbar ─── */
+::-webkit-scrollbar {
+  width: 5px;
+  height: 5px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(147, 51, 234, .3);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--kaf-purple);
+}
+
+/* ─── Animations ─── */
+@keyframes fadeUp {
+  from {
+    opacity: 0;
+    transform: translateY(16px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes slideInLeft {
+  from {
+    opacity: 0;
+    transform: translateX(-12px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes shimmer {
+  0% {
+    background-position: -400px 0;
+  }
+
+  100% {
+    background-position: 400px 0;
+  }
+}
+
+@keyframes pulse-glow {
+
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 rgba(147, 51, 234, 0);
+  }
+
+  50% {
+    box-shadow: 0 0 0 6px rgba(147, 51, 234, 0.12);
+  }
+}
+
+.anim-fade-up {
+  animation: fadeUp .4s var(--ease) both;
+}
+
+.anim-fade-in {
+  animation: fadeIn .3s var(--ease) both;
+}
+
+.anim-slide-in {
+  animation: slideInLeft .35s var(--ease) both;
+}
+
+.stagger>*:nth-child(1) {
+  animation-delay: .04s;
+}
+
+.stagger>*:nth-child(2) {
+  animation-delay: .08s;
+}
+
+.stagger>*:nth-child(3) {
+  animation-delay: .12s;
+}
+
+.stagger>*:nth-child(4) {
+  animation-delay: .16s;
+}
+
+.stagger>*:nth-child(5) {
+  animation-delay: .20s;
+}
+
+.stagger>*:nth-child(6) {
+  animation-delay: .24s;
+}
+
+/* ─── KAF Card ─── */
+.kaf-card {
+  background: var(--kaf-surface-1);
+  border: 1px solid var(--kaf-border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-sm);
+  transition: box-shadow .25s var(--ease), border-color .25s var(--ease), transform .25s var(--ease);
+}
+
+.kaf-card:hover {
+  box-shadow: var(--shadow-md), 0 0 0 1px var(--kaf-purple-border);
+  border-color: var(--kaf-purple-border);
+}
+
+.kaf-card-lift:hover {
+  transform: translateY(-2px);
+}
+
+/* Glass card variant */
+.kaf-glass {
+  background: rgba(14, 11, 30, 0.7);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid var(--kaf-border);
+  border-radius: var(--radius);
+}
+
+/* ─── KAF Button (Primary) ─── */
+.kaf-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: linear-gradient(135deg, var(--kaf-purple) 0%, var(--kaf-purple-deep) 100%);
+  color: #fff;
+  font-size: 13.5px;
+  font-weight: 600;
+  padding: 10px 22px;
+  border: none;
+  border-radius: var(--radius);
+  cursor: pointer;
+  letter-spacing: .2px;
+  transition: all .2s var(--ease);
+  box-shadow: 0 4px 14px rgba(147, 51, 234, .30), inset 0 1px 0 rgba(255, 255, 255, .1);
+  position: relative;
+  overflow: hidden;
+}
+
+.kaf-btn::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(135deg, rgba(255, 255, 255, .08) 0%, transparent 60%);
+  opacity: 0;
+  transition: opacity .2s;
+}
+
+.kaf-btn:hover:not(:disabled)::before {
+  opacity: 1;
+}
+
+.kaf-btn:hover:not(:disabled) {
+  box-shadow: 0 6px 22px rgba(147, 51, 234, .45), var(--shadow-glow-sm);
+  transform: translateY(-1px);
+}
+
+.kaf-btn:active:not(:disabled) {
+  transform: translateY(0);
+  box-shadow: var(--shadow-sm);
+}
+
+.kaf-btn:disabled {
+  opacity: .45;
+  cursor: not-allowed;
+}
+
+/* ─── KAF Button (Ghost) ─── */
+.kaf-btn-ghost {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: transparent;
+  color: var(--kaf-purple-light);
+  font-size: 13px;
+  font-weight: 500;
+  padding: 8px 16px;
+  border: 1.5px solid var(--kaf-purple-border);
+  border-radius: var(--radius);
+  cursor: pointer;
+  transition: all .2s var(--ease);
+}
+
+.kaf-btn-ghost:hover {
+  background: var(--kaf-purple-bg);
+  border-color: var(--kaf-purple);
+  color: var(--kaf-purple-light);
+}
+
+/* ─── KAF Button (Danger) ─── */
+.kaf-btn-danger {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: rgba(239, 68, 68, 0.12);
+  color: #f87171;
+  font-size: 13px;
+  font-weight: 500;
+  padding: 8px 16px;
+  border: 1.5px solid rgba(239, 68, 68, 0.25);
+  border-radius: var(--radius);
+  cursor: pointer;
+  transition: all .2s var(--ease);
+}
+
+.kaf-btn-danger:hover {
+  background: rgba(239, 68, 68, 0.20);
+  border-color: rgba(239, 68, 68, 0.45);
+}
+
+/* ─── KAF Form Input ─── */
+.kaf-input {
+  width: 100%;
+  border: 1.5px solid var(--kaf-border-2);
+  border-radius: 8px;
+  padding: 9px 13px;
+  font-size: 13.5px;
+  font-family: 'Inter', sans-serif;
+  color: var(--kaf-text);
+  background-color: var(--kaf-surface-2);
+  outline: none;
+  transition: border-color .2s var(--ease), box-shadow .2s var(--ease), background .2s var(--ease);
+}
+
+.kaf-input:focus {
+  border-color: var(--kaf-purple);
+  background-color: var(--kaf-surface-3);
+  box-shadow: 0 0 0 3px rgba(147, 51, 234, .15);
+}
+
+.kaf-input::placeholder {
+  color: var(--kaf-muted-2);
+}
+
+/* ─── KAF Textarea ─── */
+.kaf-textarea {
+  width: 100%;
+  border: 1.5px solid var(--kaf-border-2);
+  border-radius: 8px;
+  padding: 9px 13px;
+  font-size: 12.5px;
+  font-family: 'JetBrains Mono', 'SF Mono', Consolas, monospace;
+  color: #c4b8e8;
+  background: var(--kaf-code-bg);
+  outline: none;
+  resize: vertical;
+  transition: border-color .2s var(--ease), box-shadow .2s var(--ease);
+}
+
+.kaf-textarea:focus {
+  border-color: var(--kaf-purple);
+  box-shadow: 0 0 0 3px rgba(147, 51, 234, .12);
+}
+
+/* ─── KAF Label ─── */
+.kaf-label {
+  display: block;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--kaf-muted);
+  margin-bottom: 5px;
+  letter-spacing: .3px;
+  text-transform: uppercase;
+}
+
+/* ─── Page typography ─── */
+.kaf-page-title {
+  font-size: 22px;
+  font-weight: 800;
+  color: var(--kaf-dark);
+  letter-spacing: -.4px;
+  line-height: 1.2;
+  background: linear-gradient(135deg, #f0e8ff 0%, var(--kaf-purple-light) 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.kaf-page-sub {
+  font-size: 13px;
+  color: var(--kaf-muted);
+  margin-top: 5px;
+}
+
+.kaf-section-head {
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 1.6px;
+  color: var(--kaf-purple-light);
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--kaf-purple-border);
+  margin-bottom: 16px;
+}
+
+/* ─── KAF Badge ─── */
+.kaf-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 9px;
+  border-radius: 20px;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: .5px;
+  text-transform: uppercase;
+  white-space: nowrap;
+  cursor: default;
+}
+
+.badge-flagged {
+  background: rgba(239, 68, 68, 0.15);
+  color: #f87171;
+  border: 1px solid rgba(239, 68, 68, 0.3);
+}
+
+.badge-clear {
+  background: rgba(16, 185, 129, 0.12);
+  color: #34d399;
+  border: 1px solid rgba(16, 185, 129, 0.28);
+}
+
+.badge-terrorism {
+  background: rgba(245, 158, 11, 0.12);
+  color: #fbbf24;
+  border: 1px solid rgba(245, 158, 11, 0.28);
+}
+
+.badge-prosecution {
+  background: rgba(147, 51, 234, 0.14);
+  color: var(--kaf-purple-light);
+  border: 1px solid var(--kaf-purple-border);
+}
+
+.badge-classA {
+  background: rgba(239, 68, 68, 0.22);
+  color: #fca5a5;
+  border: 1px solid rgba(239, 68, 68, 0.4);
+}
+
+.badge-classD {
+  background: rgba(245, 158, 11, 0.12);
+  color: #fcd34d;
+  border: 1px solid rgba(245, 158, 11, 0.28);
+}
+
+.badge-pending {
+  background: rgba(100, 116, 139, 0.15);
+  color: #94a3b8;
+  border: 1px solid rgba(100, 116, 139, 0.28);
+}
+
+.badge-processing {
+  background: rgba(59, 130, 246, 0.12);
+  color: #60a5fa;
+  border: 1px solid rgba(59, 130, 246, 0.28);
+}
+
+.badge-completed {
+  background: rgba(16, 185, 129, 0.12);
+  color: #34d399;
+  border: 1px solid rgba(16, 185, 129, 0.28);
+}
+
+.badge-failed {
+  background: rgba(239, 68, 68, 0.15);
+  color: #f87171;
+  border: 1px solid rgba(239, 68, 68, 0.3);
+}
+
+.badge-active {
+  background: rgba(147, 51, 234, 0.20);
+  color: var(--kaf-purple-light);
+  border: 1px solid var(--kaf-purple-border);
+  box-shadow: 0 0 8px rgba(147, 51, 234, 0.15);
+}
+
+.badge-inactive {
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--kaf-muted);
+  border: 1px solid var(--kaf-border);
+}
+
+/* ─── KAF Table ─── */
+.kaf-table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  font-size: 13px;
+}
+
+.kaf-table thead tr {
+  background: linear-gradient(90deg,
+      rgba(107, 2, 125, 0.60) 0%,
+      rgba(124, 47, 198, 0.55) 45%,
+      rgba(147, 51, 234, 0.40) 100%);
+}
+
+.kaf-table thead th {
+  background: transparent;
+  color: rgba(255, 255, 255, 0.88);
+  padding: 10px 16px;
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  text-align: left;
+  white-space: nowrap;
+  border-bottom: 1px solid var(--kaf-purple-border);
+}
+
+.kaf-table tbody td {
+  padding: 10px 16px;
+  border-bottom: 1px solid var(--kaf-border);
+  color: var(--kaf-text);
+  vertical-align: middle;
+  transition: background .15s var(--ease);
+}
+
+.kaf-table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.kaf-table tbody tr:nth-child(even) td {
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.kaf-table tbody tr:hover td {
+  background: var(--kaf-purple-bg);
+}
+
+.kaf-table tbody tr:hover td:first-child {
+  box-shadow: inset 3px 0 0 var(--kaf-purple);
+}
+
+/* ─── Code / Mono ─── */
+.kaf-mono {
+  font-family: 'JetBrains Mono', 'SF Mono', Consolas, monospace;
+  font-size: 12px;
+}
+
+.kaf-code-inline {
+  background: rgba(147, 51, 234, .12);
+  color: var(--kaf-purple-light);
+  padding: 2px 7px;
+  border-radius: 4px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11.5px;
+  border: 1px solid rgba(147, 51, 234, 0.18);
+}
+
+/* ─── Alert / Callout ─── */
+.kaf-callout {
+  background: var(--kaf-purple-bg);
+  border-left: 3px solid var(--kaf-purple);
+  border-radius: 0 8px 8px 0;
+  padding: 12px 16px;
+  font-size: 13px;
+  color: var(--kaf-text);
+}
+
+.kaf-callout.warn {
+  border-left-color: var(--kaf-warning);
+  background: var(--kaf-warning-bg);
+  color: #fcd34d;
+}
+
+.kaf-callout.error {
+  border-left-color: var(--kaf-error);
+  background: var(--kaf-error-bg);
+  color: #fca5a5;
+}
+
+.kaf-callout.ok {
+  border-left-color: var(--kaf-success);
+  background: var(--kaf-success-bg);
+  color: #6ee7b7;
+}
+
+/* ─── Upload Drop Zone ─── */
+.kaf-drop-zone {
+  border: 2px dashed var(--kaf-border-2);
+  border-radius: var(--radius);
+  background: var(--kaf-surface-1);
+  transition: all .2s var(--ease);
+  cursor: pointer;
+}
+
+.kaf-drop-zone:hover,
+.kaf-drop-zone.drag-over {
+  border-color: var(--kaf-purple);
+  background: var(--kaf-purple-bg);
+  box-shadow: 0 0 0 4px rgba(147, 51, 234, .08), var(--shadow-glow-sm);
+}
+
+/* ─── Sidebar nav items ─── */
+.kaf-nav-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 12px;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 500;
+  margin-bottom: 1px;
+  text-decoration: none;
+  color: var(--kaf-muted);
+  border-left: 2px solid transparent;
+  transition: all .2s var(--ease);
+}
+
+.kaf-nav-item:hover {
+  background: rgba(147, 51, 234, .12);
+  color: var(--kaf-text);
+  padding-left: 15px;
+  border-left-color: rgba(196, 113, 237, .4);
+}
+
+.kaf-nav-item--active {
+  background: rgba(147, 51, 234, .18);
+  color: #e9d5ff;
+  border-left-color: var(--kaf-purple-light);
+  box-shadow: inset 0 0 12px rgba(147, 51, 234, .08);
+}
+
+.kaf-nav-item--active:hover {
+  padding-left: 12px;
+}
+
+/* ─── Spinner ─── */
+.kaf-spinner {
+  width: 16px;
+  height: 16px;
+  border: 2px solid rgba(147, 51, 234, .2);
+  border-top-color: var(--kaf-purple);
+  border-radius: 50%;
+  animation: spin .75s linear infinite;
+}
+
+/* ─── Stat card gradient text ─── */
+.stat-gradient {
+  background: linear-gradient(135deg, var(--kaf-purple-light) 0%, #f0abfc 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* ─── Page wrapper ─── */
+.kaf-page {
+  padding: 36px 44px;
+  min-height: 100%;
+}
+
+@media (max-width: 1100px) {
+  .kaf-page {
+    padding: 28px 28px;
+  }
+}
+
+@media (max-width: 700px) {
+  .kaf-page {
+    padding: 20px 16px;
+  }
+}
+
+/* ─── User guide modal body ─── */
+.kaf-guide-body h4 {
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+  color: var(--kaf-purple);
+  margin: 18px 0 6px;
+}
+
+.kaf-guide-body h4:first-child {
+  margin-top: 0;
+}
+
+.kaf-guide-body p {
+  margin: 0 0 10px;
+  color: var(--kaf-text);
+}
+
+.kaf-guide-body ul {
+  margin: 0 0 12px;
+  padding-left: 18px;
+  color: var(--kaf-text);
+}
+
+.kaf-guide-body li {
+  margin-bottom: 5px;
+}
+
+.kaf-guide-body strong {
+  color: var(--kaf-dark);
+  font-weight: 600;
+}
+
+.kaf-guide-body code {
+  font-family: 'JetBrains Mono', 'SF Mono', Consolas, monospace;
+  font-size: 11.5px;
+  padding: 1px 6px;
+  border-radius: 4px;
+  background: var(--kaf-purple-bg);
+  color: var(--kaf-purple-light);
+  border: 1px solid var(--kaf-purple-border);
+}
+
+:root[data-theme="light"] .kaf-guide-body code {
+  color: var(--kaf-purple-deep);
+}
+
+/* ─── Skeleton loader ─── */
+.kaf-skeleton {
+  background: linear-gradient(90deg, var(--kaf-surface-2) 25%, var(--kaf-surface-3) 50%, var(--kaf-surface-2) 75%);
+  background-size: 400px 100%;
+  animation: shimmer 1.4s ease-in-out infinite;
+  border-radius: 6px;
+}
