@@ -6,20 +6,20 @@ import {
   Eye, EyeOff,
 } from 'lucide-react';
 import axios from 'axios';
-import { usersApi } from '../lib/api';
-import { useAuth } from '../lib/auth';
-import PageHeader from '../components/PageHeader';
-import type { CreateUserRequest, PermissionKey, UpdateUserRequest, UserDto } from '../types';
+import { usersApi } from '../../lib/api';
+import { useAuth } from '../../lib/auth';
+import PageHeader from '../../components/PageHeader';
+import type { CreateUserRequest, PermissionKey, UpdateUserRequest, UserDto, UserSecurityRole } from '../../types';
+import { USER_SECURITY_ROLES } from '../../types';
 
 const PERMISSIONS: { key: PermissionKey; label: string; hint: string }[] = [
-  { key: 'permViewDashboard', label: 'View dashboard', hint: 'Access to / and stats' },
-  { key: 'permRunAmlCheck', label: 'Run AML check', hint: 'Individual screening page' },
-  { key: 'permRunBatchCheck', label: 'Run batch screening', hint: 'Policy / Excel screening' },
-  { key: 'permViewLists', label: 'View lists', hint: 'Browse AML list records' },
-  { key: 'permUploadLists', label: 'Upload lists', hint: 'Upload terrorism / prosecution Excel sheets' },
-  { key: 'permManageLists', label: 'Manage list records', hint: 'Edit / add individual list records' },
-  { key: 'permViewFlaggedRecords', label: 'View flagged records', hint: 'Access flagged records tab' },
-  { key: 'permViewAuditLog', label: 'View audit log', hint: 'Access full audit log' },
+  { key: 'permViewDashboard', label: 'View dashboard', hint: 'Access to home overview' },
+  { key: 'permCreateInvoice', label: 'Create invoice', hint: 'Operations — create company invoices' },
+  { key: 'permSettleInvoice', label: 'Settle invoice', hint: 'CRM / Investment — settle unpaid invoices' },
+  { key: 'permCancelInvoice', label: 'Cancel invoice', hint: 'Tech — cancel unsettled invoices' },
+  { key: 'permAddTopUp', label: 'Add top up', hint: 'Operations — single employee top-up' },
+  { key: 'permBulkTopUp', label: 'Bulk top up', hint: 'Operations — Excel bulk top-up' },
+  { key: 'permManageUsers', label: 'Manage users', hint: 'Administer application users' },
 ];
 
 type DialogMode = { type: 'closed' } | { type: 'create' } | { type: 'edit'; user: UserDto };
@@ -73,7 +73,7 @@ export default function UserManagement() {
       <PageHeader
         icon={UserCog}
         title="User Management"
-        subtitle="Create, edit, and remove application users. Visible only to superusers."
+        subtitle="Create, edit, and remove application users."
         actions={
           <>
             <div style={{ position: 'relative' }}>
@@ -254,6 +254,9 @@ function UserDialog({
   const [username, setUsername] = useState(initial?.username ?? '');
   const [email, setEmail] = useState(initial?.email ?? '');
   const [fullName, setFullName] = useState(initial?.fullName ?? '');
+  const [userSecurity, setUserSecurity] = useState<UserSecurityRole>(
+    initial?.userSecurity ?? 'Operations',
+  );
   const [isSuperuser, setIsSuperuser] = useState(initial?.isSuperuser ?? false);
   const [isActive, setIsActive] = useState(initial?.isActive ?? true);
   const [resetPassword, setResetPassword] = useState(false);
@@ -268,11 +271,33 @@ function UserDialog({
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const passwordRequired = !editing || resetPassword;
+  const passwordRequired = editing && resetPassword;
 
   const onSubmit = async (e: FormEvent) => {
     e.preventDefault();
     setError(null);
+
+    if (!editing) {
+      if (!fullName.trim() || !username.trim() || !userSecurity) {
+        setError('Full Name, Login ID, and User Security are required.');
+        return;
+      }
+      setSubmitting(true);
+      try {
+        const payload: CreateUserRequest = {
+          username: username.trim(),
+          fullName: fullName.trim(),
+          userSecurity,
+        };
+        await usersApi.create(payload);
+        onSaved();
+      } catch (err) {
+        setError(extractError(err));
+      } finally {
+        setSubmitting(false);
+      }
+      return;
+    }
 
     if (passwordRequired) {
       if (password.length < 8) {
@@ -287,21 +312,13 @@ function UserDialog({
 
     setSubmitting(true);
     try {
-      if (editing) {
-        const payload: UpdateUserRequest = {
-          email, fullName, isSuperuser, isActive,
-          resetPassword: resetPassword || undefined,
-          newPassword: resetPassword ? password : undefined,
-          ...perms,
-        };
-        await usersApi.update(initial!.id, payload);
-      } else {
-        const payload: CreateUserRequest = {
-          username, email, fullName, password, isSuperuser,
-          ...perms,
-        };
-        await usersApi.create(payload);
-      }
+      const payload: UpdateUserRequest = {
+        email, fullName, isSuperuser, isActive, userSecurity,
+        resetPassword: resetPassword || undefined,
+        newPassword: resetPassword ? password : undefined,
+        ...perms,
+      };
+      await usersApi.update(initial!.id, payload);
       onSaved();
     } catch (err) {
       setError(extractError(err));
@@ -310,12 +327,93 @@ function UserDialog({
     }
   };
 
+  if (!editing) {
+    return (
+      <Modal onClose={onClose} maxWidth={420}>
+        <form onSubmit={onSubmit}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+            <h3 style={{ margin: 0, fontSize: 17, color: 'var(--kaf-text)' }}>
+              Add New User
+            </h3>
+            <button type="button" onClick={onClose} style={iconBtn} aria-label="Close">
+              <X size={16} />
+            </button>
+          </div>
+
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+            <Field label="Full Name *">
+              <input
+                value={fullName ?? ''}
+                onChange={(e) => setFullName(e.target.value)}
+                disabled={submitting}
+                className="kaf-input"
+                required
+                autoFocus
+              />
+            </Field>
+            <Field label="Login ID *">
+              <input
+                value={username}
+                onChange={(e) => setUsername(e.target.value)}
+                disabled={submitting}
+                className="kaf-input"
+                required
+                autoComplete="off"
+              />
+            </Field>
+            <Field label="User Security *">
+              <select
+                className="kaf-input"
+                value={userSecurity}
+                onChange={(e) => setUserSecurity(e.target.value as UserSecurityRole)}
+                disabled={submitting}
+                required
+              >
+                {USER_SECURITY_ROLES.map((role) => (
+                  <option key={role} value={role}>{role}</option>
+                ))}
+              </select>
+            </Field>
+          </div>
+
+          <p style={{
+            marginTop: 14, marginBottom: 0, fontSize: 12, lineHeight: 1.5,
+            color: 'var(--kaf-muted)',
+          }}>
+            Initial password is <b style={{ color: 'var(--kaf-text)' }}>Password</b>.
+            The user must change it on first login.
+          </p>
+
+          {error && (
+            <div style={{
+              marginTop: 14, padding: '10px 12px', borderRadius: 8,
+              background: 'rgba(239,68,68,0.08)',
+              border: '1px solid rgba(239,68,68,0.30)',
+              color: '#dc2626', fontSize: 12.5,
+            }}>
+              {error}
+            </div>
+          )}
+
+          <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', marginTop: 20 }}>
+            <button type="button" onClick={onClose} style={ghostBtn} disabled={submitting}>
+              Cancel
+            </button>
+            <button type="submit" style={primaryBtn} disabled={submitting}>
+              <Check size={14} /> {submitting ? 'Saving…' : 'Add New User'}
+            </button>
+          </div>
+        </form>
+      </Modal>
+    );
+  }
+
   return (
     <Modal onClose={onClose} maxWidth={620}>
       <form onSubmit={onSubmit}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
           <h3 style={{ margin: 0, fontSize: 17, color: 'var(--kaf-text)' }}>
-            {editing ? `Edit ${initial!.username}` : 'New user'}
+            Edit {initial!.username}
           </h3>
           <button type="button" onClick={onClose} style={iconBtn} aria-label="Close">
             <X size={16} />
@@ -326,9 +424,8 @@ function UserDialog({
           <Field label="Username">
             <input
               value={username}
-              onChange={(e) => setUsername(e.target.value)}
-              disabled={editing || submitting}
-              className="kaf-input" required
+              disabled
+              className="kaf-input"
             />
           </Field>
           <Field label="Email">
@@ -348,12 +445,24 @@ function UserDialog({
               className="kaf-input"
             />
           </Field>
+          <Field label="User Security">
+            <select
+              className="kaf-input"
+              value={userSecurity}
+              onChange={(e) => setUserSecurity(e.target.value as UserSecurityRole)}
+              disabled={submitting}
+            >
+              {USER_SECURITY_ROLES.map((role) => (
+                <option key={role} value={role}>{role}</option>
+              ))}
+            </select>
+          </Field>
           <Field label="Status">
             <div style={{ display: 'flex', gap: 14, alignItems: 'center', height: 38 }}>
               <Toggle
                 checked={isActive}
                 onChange={setIsActive}
-                disabled={submitting || !editing}
+                disabled={submitting}
                 label={isActive ? 'Active' : 'Disabled'}
               />
             </div>
@@ -407,22 +516,20 @@ function UserDialog({
           </div>
         )}
 
-        {editing && (
-          <div style={{
-            marginTop: 14, padding: '10px 14px', borderRadius: 10,
-            background: 'rgba(245,158,11,0.06)', border: '1px solid rgba(245,158,11,0.20)'
-          }}>
-            <Toggle
-              checked={resetPassword}
-              onChange={(v) => {
-                setResetPassword(v);
-                if (!v) { setPassword(''); setConfirmPassword(''); }
-              }}
-              disabled={submitting}
-              label="Reset password — set a new password for this user"
-            />
-          </div>
-        )}
+        <div style={{
+          marginTop: 14, padding: '10px 14px', borderRadius: 10,
+          background: 'rgba(245,158,11,0.06)', border: '1px solid rgba(245,158,11,0.20)'
+        }}>
+          <Toggle
+            checked={resetPassword}
+            onChange={(v) => {
+              setResetPassword(v);
+              if (!v) { setPassword(''); setConfirmPassword(''); }
+            }}
+            disabled={submitting}
+            label="Reset password — set a new password for this user"
+          />
+        </div>
 
         {passwordRequired && (
           <div style={{ marginTop: 14 }}>
@@ -430,10 +537,10 @@ function UserDialog({
               margin: '0 0 10px', fontSize: 12.5, color: 'var(--kaf-text)', opacity: 0.55,
               textTransform: 'uppercase', letterSpacing: '0.5px'
             }}>
-              {editing ? 'New password' : 'Initial password'}
+              New password
             </h4>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-              <Field label={editing ? 'New password' : 'Password'}>
+              <Field label="New password">
                 <div style={{ position: 'relative' }}>
                   <input
                     type={showPassword ? 'text' : 'password'}
@@ -478,11 +585,7 @@ function UserDialog({
               </Field>
             </div>
             <p style={{ marginTop: 8, color: 'var(--kaf-muted-2)', fontSize: 11.5 }}>
-              {editing
-                ? <>This new password will be emailed to <b>{email || 'the user'}</b>.
-                  They will be required to change it on next login.</>
-                : <>This password will be emailed to <b>{email || 'the user'}</b>.
-                  They will be required to change it on first login.</>}
+              They will be required to change this password on next login.
             </p>
           </div>
         )}
@@ -503,7 +606,7 @@ function UserDialog({
             Cancel
           </button>
           <button type="submit" style={primaryBtn} disabled={submitting}>
-            <Check size={14} /> {submitting ? 'Saving…' : editing ? 'Save changes' : 'Create user'}
+            <Check size={14} /> {submitting ? 'Saving…' : 'Save changes'}
           </button>
         </div>
       </form>

@@ -3,8 +3,8 @@ import type { FormEvent } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { Eye, EyeOff, LogIn, Sun, Moon } from 'lucide-react';
-import { useAuth } from '../lib/auth';
-import { useTheme } from '../lib/theme';
+import { useAuth } from '../../lib/auth';
+import { useTheme } from '../../lib/theme';
 import axios from 'axios';
 
 export default function Login() {
@@ -232,7 +232,7 @@ export default function Login() {
             color: 'var(--kaf-muted-2)', fontSize: 11, lineHeight: 1.6,
             margin: 0,
           }}>
-            Need an account? Please contact your system administrator.
+            Demo logins: admin/admin · ops/ops · crm/crm · tech/tech
           </p>
         </div>
       </motion.div>
