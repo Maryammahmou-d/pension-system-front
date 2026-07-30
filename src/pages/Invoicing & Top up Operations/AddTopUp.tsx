@@ -102,7 +102,7 @@ export default function AddTopUp() {
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 12 }}>
             <Field label="Company Number" required span={2}>
               <select
-                className="kaf-input"
+                className="kaf-input kaf-select"
                 value={companyNumber}
                 onChange={(e) => onCompanyChange(e.target.value)}
                 disabled={loading}
@@ -118,7 +118,7 @@ export default function AddTopUp() {
 
             <Field label="Employee Number" required span={2}>
               <select
-                className="kaf-input"
+                className="kaf-input kaf-select"
                 value={employeeNumber}
                 onChange={(e) => setEmployeeNumber(e.target.value)}
                 disabled={loading || !companyNumber}

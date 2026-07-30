@@ -363,7 +363,7 @@ function UserDialog({
             </Field>
             <Field label="User Security *">
               <select
-                className="kaf-input"
+                className="kaf-input kaf-select"
                 value={userSecurity}
                 onChange={(e) => setUserSecurity(e.target.value as UserSecurityRole)}
                 disabled={submitting}
@@ -447,7 +447,7 @@ function UserDialog({
           </Field>
           <Field label="User Security">
             <select
-              className="kaf-input"
+              className="kaf-input kaf-select"
               value={userSecurity}
               onChange={(e) => setUserSecurity(e.target.value as UserSecurityRole)}
               disabled={submitting}

@@ -75,7 +75,7 @@ export default function CreateInvoice() {
           <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
             <Field label="Company Number" required>
               <select
-                className="kaf-input"
+                className="kaf-input kaf-select"
                 value={companyNumber}
                 onChange={(e) => setCompanyNumber(e.target.value)}
                 disabled={loading}
@@ -92,7 +92,7 @@ export default function CreateInvoice() {
             <div style={{ display: 'grid', gridTemplateColumns: '176px 176px', gap: 14, alignItems: 'end' }}>
               <Field label="Month" required>
                 <select
-                  className="kaf-input"
+                  className="kaf-input kaf-select"
                   value={month}
                   onChange={(e) => setMonth(Number(e.target.value))}
                   disabled={loading}

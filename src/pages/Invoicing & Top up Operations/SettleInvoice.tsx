@@ -87,7 +87,7 @@ export default function SettleInvoice() {
           <div style={{ display: 'grid', gridTemplateColumns: '1.4fr 1fr 1fr', gap: 14, marginBottom: 14 }}>
             <Field label="Invoice Number" required>
               <select
-                className="kaf-input"
+                className="kaf-input kaf-select"
                 value={invoiceNumber}
                 onChange={(e) => { setInvoiceNumber(e.target.value); setError(null); setSuccess(null); }}
                 disabled={loading}

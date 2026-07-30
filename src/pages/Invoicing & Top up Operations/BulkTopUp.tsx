@@ -174,7 +174,7 @@ export default function BulkTopUp() {
           <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
             <Field label="Company Number" required>
               <select
-                className="kaf-input"
+                className="kaf-input kaf-select"
                 value={companyNumber}
                 onChange={(e) => setCompanyNumber(e.target.value)}
                 disabled={loading}
