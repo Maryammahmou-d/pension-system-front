@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import {
   LayoutDashboard,
   Sun, Moon, LogOut, ShieldCheck, UserCog,
+  UserPlus,
 } from 'lucide-react';
 import { useTheme } from '../lib/theme';
 import { useAuth } from '../lib/auth';
@@ -29,6 +30,7 @@ const ALL_SECTIONS: NavSection[] = [
     title: 'Administration',
     items: [
       { to: '/users', label: 'User Management', icon: UserCog, superuserOnly: true },
+      { to: '/employees/add', label: 'Add Employee', icon: UserPlus, superuserOnly: true },
     ],
   },
 ];

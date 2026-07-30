@@ -5,6 +5,7 @@ import Home from './pages/Home';
 import Login from './pages/Login';
 import ChangePassword from './pages/ChangePassword';
 import UserManagement from './pages/UserManagement';
+import AddEmployee from './pages/Employee and Company Mangment/AddEmployee';
 import { ThemeProvider } from './lib/theme';
 import { AuthProvider } from './lib/auth';
 
@@ -33,6 +34,7 @@ function App() {
             >
               <Route index element={<Home />} />
               <Route path="users" element={<ProtectedRoute superuserOnly><UserManagement /></ProtectedRoute>} />
+              <Route path="employees/add" element={<ProtectedRoute superuserOnly><AddEmployee /></ProtectedRoute>} />
             </Route>
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
