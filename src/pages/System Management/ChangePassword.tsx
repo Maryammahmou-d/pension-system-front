@@ -4,8 +4,8 @@ import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { LogOut, Sun, Moon } from 'lucide-react';
 import axios from 'axios';
-import { useAuth } from '../lib/auth';
-import { useTheme } from '../lib/theme';
+import { useAuth } from '../../lib/auth';
+import { useTheme } from '../../lib/theme';
 
 export default function ChangePassword() {
   const { user, changePassword, logout } = useAuth();

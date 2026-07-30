@@ -11,6 +11,7 @@ import {
   PlusCircle,
   Building2,
   Building,
+  FilePlus2, BadgeCheck, FileX2, Wallet,
 } from 'lucide-react';
 import { useTheme } from '../lib/theme';
 import { useAuth } from '../lib/auth';
@@ -28,13 +29,17 @@ interface NavSection { title: string; items: NavItem[] }
 
 const ALL_SECTIONS: NavSection[] = [
   {
-    title: 'Overview',
+    title: 'Invoicing & Top up Operations',
     items: [
-      { to: '/', label: 'Home', icon: LayoutDashboard, end: true },
+      { to: '/billing/create-invoice', label: 'Create Invoice', icon: FilePlus2, permission: 'permCreateInvoice' },
+      { to: '/billing/settle-invoice', label: 'Settle Invoice', icon: BadgeCheck, permission: 'permSettleInvoice' },
+      { to: '/billing/cancel-invoice', label: 'Cancel Invoice', icon: FileX2, permission: 'permCancelInvoice' },
+      { to: '/top-ups/add', label: 'Add Top Up', icon: Wallet, permission: 'permAddTopUp' },
+      { to: '/top-ups/bulk', label: 'Bulk Top Up', icon: Upload, permission: 'permBulkTopUp' },
     ],
   },
   {
-    title: 'Administration',
+    title: 'System Management',
     items: [
       { to: '/users', label: 'User Management', icon: UserCog, superuserOnly: true },
       { to: '/employees/add', label: 'Add Employee', icon: UserPlus, superuserOnly: true },

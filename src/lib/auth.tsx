@@ -1,54 +1,46 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import type { ReactNode } from 'react';
-import { tokenStorage, userStorage } from './api';
+import { securityLevelForRole, tokenStorage, userStorage, usersApi } from './api';
 import type { ChangePasswordRequest, LoginRequest, PermissionKey, UserDto } from '../types';
-
-const MOCK_USER: UserDto = {
-  id: 1,
-  username: 'admin',
-  email: 'admin@rubix.local',
-  fullName: 'Administrator',
-  isSuperuser: true,
-  isActive: true,
-  mustChangePassword: false,
-  permViewDashboard: true,
-  permViewAuditLog: true,
-  permViewFlaggedRecords: true,
-  permRunAmlCheck: true,
-  permRunBatchCheck: true,
-  permViewLists: true,
-  permManageLists: true,
-  permUploadLists: true,
-};
 
 interface AuthState {
   user: UserDto | null;
-  loading: boolean;          // true while the initial /me call is in flight
+  loading: boolean;
   login: (req: LoginRequest) => Promise<UserDto>;
   logout: () => void;
   changePassword: (req: ChangePasswordRequest) => Promise<UserDto>;
   refresh: () => Promise<void>;
   /** Returns true for superusers OR users with the given permission flag. */
   has: (perm: PermissionKey) => boolean;
+  /** Access-style security level for settle window rules (1 Admin, 5 Tech). */
+  securityLevel: () => number;
 }
 
 const AuthContext = createContext<AuthState | undefined>(undefined);
 
+function migrateStoredUser(raw: UserDto | null): UserDto | null {
+  if (!raw) return null;
+  // Drop stale sessions missing Rubix permission / role fields.
+  if (!('permCreateInvoice' in raw) || !('userSecurity' in raw)) {
+    tokenStorage.clear();
+    return null;
+  }
+  return raw;
+}
+
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [user, setUser] = useState<UserDto | null>(() => userStorage.get());
+  const [user, setUser] = useState<UserDto | null>(() => migrateStoredUser(userStorage.get()));
   const [loading, setLoading] = useState<boolean>(() => !!tokenStorage.get());
 
-  // Restore session from localStorage on mount (mock — no backend call needed).
   useEffect(() => {
     const token = tokenStorage.get();
     if (!token) { setLoading(false); return; }
-    const stored = userStorage.get();
+    const stored = migrateStoredUser(userStorage.get());
     if (stored) setUser(stored);
+    else setUser(null);
     setLoading(false);
   }, []);
 
-  // Listen for the global "unauthorized" event triggered by the axios
-  // 401 interceptor — clears in-memory user state.
   useEffect(() => {
     const handler = () => setUser(null);
     window.addEventListener('kaf-rubix:unauthorized', handler);
@@ -56,13 +48,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const login = useCallback(async (req: LoginRequest) => {
-    if (req.identifier !== 'admin' || req.password !== 'admin') {
-      throw Object.assign(new Error('Invalid credentials. Use admin / admin.'), { isAuthError: true });
+    try {
+      const u = await usersApi.authenticate(req.identifier, req.password);
+      tokenStorage.set(`mock-rubix-token-${u.username}`);
+      userStorage.set(u);
+      setUser(u);
+      return u;
+    } catch (err) {
+      throw Object.assign(
+        new Error(
+          err instanceof Error
+            ? err.message
+            : 'Invalid credentials. Try admin/admin, ops/ops, crm/crm, or tech/tech.',
+        ),
+        { isAuthError: true },
+      );
     }
-    tokenStorage.set('mock-rubix-token');
-    userStorage.set(MOCK_USER);
-    setUser(MOCK_USER);
-    return MOCK_USER;
   }, []);
 
   const logout = useCallback(() => {
@@ -70,17 +71,29 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(null);
   }, []);
 
-  const changePassword = useCallback(async (_req: ChangePasswordRequest) => {
-    const stored = userStorage.get() ?? MOCK_USER;
-    userStorage.set(stored);
-    setUser(stored);
-    return stored;
+  const changePassword = useCallback(async (req: ChangePasswordRequest) => {
+    const stored = userStorage.get();
+    if (!stored) throw new Error('Not signed in.');
+    const next = await usersApi.setPassword(
+      stored.username,
+      req.currentPassword,
+      req.newPassword,
+    );
+    userStorage.set(next);
+    setUser(next);
+    return next;
   }, []);
 
   const refresh = useCallback(async () => {
-    const stored = userStorage.get() ?? MOCK_USER;
-    userStorage.set(stored);
-    setUser(stored);
+    const stored = userStorage.get();
+    if (!stored) return;
+    try {
+      const fresh = await usersApi.get(stored.id);
+      userStorage.set(fresh);
+      setUser(fresh);
+    } catch {
+      /* keep stored */
+    }
   }, []);
 
   const has = useCallback((perm: PermissionKey) => {
@@ -89,9 +102,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return Boolean(user[perm]);
   }, [user]);
 
+  const securityLevel = useCallback(() => {
+    if (!user) return 3;
+    if (user.isSuperuser) return 1;
+    return securityLevelForRole(user.userSecurity);
+  }, [user]);
+
   const value = useMemo<AuthState>(
-    () => ({ user, loading, login, logout, changePassword, refresh, has }),
-    [user, loading, login, logout, changePassword, refresh, has],
+    () => ({ user, loading, login, logout, changePassword, refresh, has, securityLevel }),
+    [user, loading, login, logout, changePassword, refresh, has, securityLevel],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
