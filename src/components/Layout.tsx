@@ -4,6 +4,13 @@ import {
   LayoutDashboard,
   Sun, Moon, LogOut, ShieldCheck, UserCog,
   UserPlus,
+  Upload,
+  Pencil,
+  UserX,
+  Users,
+  PlusCircle,
+  Building2,
+  Building,
 } from 'lucide-react';
 import { useTheme } from '../lib/theme';
 import { useAuth } from '../lib/auth';
@@ -31,6 +38,15 @@ const ALL_SECTIONS: NavSection[] = [
     items: [
       { to: '/users', label: 'User Management', icon: UserCog, superuserOnly: true },
       { to: '/employees/add', label: 'Add Employee', icon: UserPlus, superuserOnly: true },
+      { to: '/employees/import', label: 'Import Employees', icon: Upload, superuserOnly: true },
+      { to: '/employees/edit', label: 'Edit Existing Employee', icon: Pencil, superuserOnly: true },
+      { to: '/employees/terminate', label: 'Terminate Employee', icon: UserX, superuserOnly: true },
+      { to: '/employees/terminate-bulk', label: 'Terminate Employees in Bulk', icon: Users, superuserOnly: true },
+      { to: '/contributions/add', label: 'Add New Contributions', icon: PlusCircle, superuserOnly: true },
+      { to: '/contributions/edit', label: 'Edit Existing Contributions', icon: Pencil, superuserOnly: true },
+      { to: '/companies/add', label: 'Add New Company', icon: Building2, superuserOnly: true },
+      { to: '/companies/edit', label: 'Edit Existing Company', icon: Pencil, superuserOnly: true },
+      { to: '/companies/terminate', label: 'Terminate Company', icon: Building, superuserOnly: true },
     ],
   },
 ];
