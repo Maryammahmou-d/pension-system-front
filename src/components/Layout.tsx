@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'react';
 import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
@@ -12,48 +13,84 @@ import {
   Building2,
   Building,
   FilePlus2, BadgeCheck, FileX2, Wallet,
+  ChevronDown,
+  FileBarChart2,
+  Zap,
+  TrendingUp,
+  CalendarClock,
+  Scale,
+  Banknote,
 } from 'lucide-react';
 import { useTheme } from '../lib/theme';
 import { useAuth } from '../lib/auth';
 import type { PermissionKey } from '../types';
 
-interface NavItem {
+type IconType = typeof LayoutDashboard;
+
+interface LinkedAction {
+  kind: 'link';
   to: string;
   label: string;
-  icon: typeof LayoutDashboard;
+  icon: IconType;
   end?: boolean;
   permission?: PermissionKey;
   superuserOnly?: boolean;
 }
-interface NavSection { title: string; items: NavItem[] }
 
-const ALL_SECTIONS: NavSection[] = [
-  {
-    title: 'Invoicing & Top up Operations',
-    items: [
-      { to: '/billing/create-invoice', label: 'Create Invoice', icon: FilePlus2, permission: 'permCreateInvoice' },
-      { to: '/billing/settle-invoice', label: 'Settle Invoice', icon: BadgeCheck, permission: 'permSettleInvoice' },
-      { to: '/billing/cancel-invoice', label: 'Cancel Invoice', icon: FileX2, permission: 'permCancelInvoice' },
-      { to: '/top-ups/add', label: 'Add Top Up', icon: Wallet, permission: 'permAddTopUp' },
-      { to: '/top-ups/bulk', label: 'Bulk Top Up', icon: Upload, permission: 'permBulkTopUp' },
-    ],
-  },
-  {
-    title: 'System Management',
-    items: [
-      { to: '/users', label: 'User Management', icon: UserCog, superuserOnly: true },
-      { to: '/employees/add', label: 'Add Employee', icon: UserPlus, superuserOnly: true },
-      { to: '/employees/import', label: 'Import Employees', icon: Upload, superuserOnly: true },
-      { to: '/employees/edit', label: 'Edit Existing Employee', icon: Pencil, superuserOnly: true },
-      { to: '/employees/terminate', label: 'Terminate Employee', icon: UserX, superuserOnly: true },
-      { to: '/employees/terminate-bulk', label: 'Terminate Employees in Bulk', icon: Users, superuserOnly: true },
-      { to: '/contributions/add', label: 'Add New Contributions', icon: PlusCircle, superuserOnly: true },
-      { to: '/contributions/edit', label: 'Edit Existing Contributions', icon: Pencil, superuserOnly: true },
-      { to: '/companies/add', label: 'Add New Company', icon: Building2, superuserOnly: true },
-      { to: '/companies/edit', label: 'Edit Existing Company', icon: Pencil, superuserOnly: true },
-      { to: '/companies/terminate', label: 'Terminate Company', icon: Building, superuserOnly: true },
-    ],
-  },
+interface PlaceholderAction {
+  kind: 'placeholder';
+  label: string;
+  icon: IconType;
+}
+
+type ActionNavItem = LinkedAction | PlaceholderAction;
+
+/** Access Actions order — linked pages + placeholders for not-yet-built screens. */
+const ACTIONS_ITEMS: ActionNavItem[] = [
+  { kind: 'link', to: '/users', label: 'User Management', icon: UserCog, superuserOnly: true },
+  { kind: 'placeholder', label: 'Update Unit Price', icon: TrendingUp },
+  { kind: 'placeholder', label: 'Run Monthly Charges', icon: CalendarClock },
+  { kind: 'placeholder', label: 'Run Balance Dashboard', icon: LayoutDashboard },
+  { kind: 'link', to: '/companies/add', label: 'Add New Company', icon: Building2, superuserOnly: true },
+  { kind: 'link', to: '/companies/edit', label: 'Edit Existing Company', icon: Pencil, superuserOnly: true },
+  { kind: 'link', to: '/contributions/add', label: 'Add New Contributions', icon: PlusCircle, superuserOnly: true },
+  { kind: 'link', to: '/contributions/edit', label: 'Edit Existing Contributions', icon: Pencil, superuserOnly: true },
+  { kind: 'placeholder', label: 'Add New Vesting Rules', icon: Scale },
+  { kind: 'placeholder', label: 'Edit Existing Vesting', icon: Scale },
+  { kind: 'link', to: '/employees/add', label: 'Add New Employee', icon: UserPlus, superuserOnly: true },
+  { kind: 'link', to: '/employees/import', label: 'Import Employees', icon: Upload, superuserOnly: true },
+  { kind: 'link', to: '/employees/edit', label: 'Edit Existing Employee', icon: Pencil, superuserOnly: true },
+  { kind: 'link', to: '/billing/create-invoice', label: 'Create Invoice', icon: FilePlus2, permission: 'permCreateInvoice' },
+  { kind: 'link', to: '/billing/settle-invoice', label: 'Settle Invoice', icon: BadgeCheck, permission: 'permSettleInvoice' },
+  { kind: 'link', to: '/billing/cancel-invoice', label: 'Cancel Invoice', icon: FileX2, permission: 'permCancelInvoice' },
+  { kind: 'link', to: '/top-ups/add', label: 'Add Top Up', icon: Wallet, permission: 'permAddTopUp' },
+  { kind: 'placeholder', label: 'Employee Funds Withdrawal', icon: Banknote },
+  { kind: 'link', to: '/employees/terminate', label: 'Terminate Employee', icon: UserX, superuserOnly: true },
+  { kind: 'link', to: '/companies/terminate', label: 'Terminate Company', icon: Building, superuserOnly: true },
+  { kind: 'link', to: '/employees/terminate-bulk', label: 'Terminate Employees in Bulk', icon: Users, superuserOnly: true },
+  { kind: 'link', to: '/top-ups/bulk', label: 'Top Up Employees in Bulk', icon: Upload, permission: 'permBulkTopUp' },
+];
+
+const REPORT_PLACEHOLDERS: string[] = [
+  'View Unit Prices',
+  'Unsettled Invoices',
+  'Extract Company Transactions',
+  'Extract Employee Transactions',
+  'Extract Transactions Between Dates',
+  'Extract Invoice Details',
+  'Extract Movement Summary Between Dates',
+  'Extract Movement Summary for a day',
+  'Extract Companies Funds',
+  'Net Company Funds - Modified Date',
+  'Net Employee Funds',
+  'Net Funds',
+  'Net Units',
+  'Estimate Employee Termination',
+  'Employee Extract for App',
+  'Generate Company Balance Reports',
+  'Generate Employee Balance Report',
+  'Extract Employee',
+  'Generate Aggregated Employee Balance Report',
 ];
 
 export default function Layout() {
@@ -63,17 +100,23 @@ export default function Layout() {
   const { user, logout, has } = useAuth();
   const isLight = theme === 'light';
 
-  // Filter nav items by current user's permissions / superuser flag.
-  const sections: NavSection[] = ALL_SECTIONS
-    .map((s) => ({
-      ...s,
-      items: s.items.filter((it) => {
-        if (it.superuserOnly) return user?.isSuperuser ?? false;
-        if (it.permission) return has(it.permission);
-        return true;
-      }),
-    }))
-    .filter((s) => s.items.length > 0);
+  const actionItems = ACTIONS_ITEMS.filter((it) => {
+    if (it.kind === 'placeholder') return true;
+    if (it.superuserOnly) return user?.isSuperuser ?? false;
+    if (it.permission) return has(it.permission);
+    return true;
+  });
+
+  const isOnActionRoute = actionItems.some(
+    (it) => it.kind === 'link' && (location.pathname === it.to || location.pathname.startsWith(it.to + '/')),
+  );
+
+  const [actionsOpen, setActionsOpen] = useState(true);
+  const [reportsOpen, setReportsOpen] = useState(false);
+
+  useEffect(() => {
+    if (isOnActionRoute) setActionsOpen(true);
+  }, [isOnActionRoute]);
 
   return (
     <div style={{ display: 'flex', height: '100vh', overflow: 'hidden', background: 'var(--kaf-bg)' }}>
@@ -145,58 +188,131 @@ export default function Layout() {
         </div>
 
         {/* Nav */}
-        <nav style={{ padding: '6px 12px', flex: 1 }}>
-          {sections.map(({ title, items }, si) => (
+        <nav style={{ padding: '10px 12px', flex: 1 }}>
+          {actionItems.length > 0 && (
             <motion.div
-              key={title}
               initial={{ opacity: 0, x: -10 }}
               animate={{ opacity: 1, x: 0 }}
-              transition={{ delay: 0.1 + si * 0.06, duration: 0.3 }}
+              transition={{ delay: 0.1, duration: 0.3 }}
             >
-              <p style={{
-                color: isLight ? 'rgba(107,2,125,0.50)' : 'rgba(147,51,234,0.45)',
-                fontSize: 9.5,
-                fontWeight: 700,
-                textTransform: 'uppercase',
-                letterSpacing: '1.8px',
-                padding: '18px 10px 6px',
-              }}>
-                {title}
-              </p>
-              {items.map(({ to, label, icon: Icon, end }) => (
-                <NavLink
-                  key={to}
-                  to={to}
-                  end={end}
-                  className={({ isActive }) =>
-                    isActive ? 'kaf-nav-item kaf-nav-item--active' : 'kaf-nav-item'
-                  }
-                >
-                  {({ isActive }) => (
-                    <>
-                      <span style={{
-                        display: 'inline-flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        width: 24,
-                        height: 24,
-                        background: isActive
-                          ? 'linear-gradient(135deg, var(--kaf-purple) 0%, var(--kaf-purple-deep) 100%)'
-                          : isLight ? 'rgba(107,2,125,0.08)' : 'rgba(147,51,234,0.14)',
-                        borderRadius: 6,
-                        flexShrink: 0,
-                        transition: 'all .2s',
-                        boxShadow: isActive ? '0 2px 8px rgba(147,51,234,0.35)' : 'none',
-                      }}>
-                        <Icon size={13} color={isActive ? '#fff' : isLight ? 'rgba(107,2,125,0.55)' : 'var(--kaf-muted)'} />
-                      </span>
-                      {label}
-                    </>
-                  )}
-                </NavLink>
-              ))}
+              <SectionToggle
+                label="Actions"
+                icon={Zap}
+                open={actionsOpen}
+                onToggle={() => setActionsOpen((v) => !v)}
+                isLight={isLight}
+              />
+              <AnimatePresence initial={false}>
+                {actionsOpen && (
+                  <motion.div
+                    key="actions-items"
+                    initial={{ height: 0, opacity: 0 }}
+                    animate={{ height: 'auto', opacity: 1 }}
+                    exit={{ height: 0, opacity: 0 }}
+                    transition={{ duration: 0.22, ease: [0.4, 0, 0.2, 1] }}
+                    style={{ overflow: 'hidden', paddingLeft: 4 }}
+                  >
+                    {actionItems.map((item) => {
+                      if (item.kind === 'placeholder') {
+                        const Icon = item.icon;
+                        return (
+                          <div
+                            key={item.label}
+                            className="kaf-nav-item"
+                            title="Coming soon"
+                            style={{
+                              opacity: 0.45,
+                              cursor: 'not-allowed',
+                              pointerEvents: 'none',
+                              userSelect: 'none',
+                            }}
+                            aria-disabled="true"
+                          >
+                            <span style={navIconWrap(false, isLight)}>
+                              <Icon size={13} color={isLight ? 'rgba(107,2,125,0.4)' : 'var(--kaf-muted)'} />
+                            </span>
+                            <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                              {item.label}
+                            </span>
+                          </div>
+                        );
+                      }
+
+                      const { to, label, icon: Icon, end } = item;
+                      return (
+                        <NavLink
+                          key={to}
+                          to={to}
+                          end={end}
+                          className={({ isActive }) =>
+                            isActive ? 'kaf-nav-item kaf-nav-item--active' : 'kaf-nav-item'
+                          }
+                        >
+                          {({ isActive }) => (
+                            <>
+                              <span style={navIconWrap(isActive, isLight)}>
+                                <Icon size={13} color={isActive ? '#fff' : isLight ? 'rgba(107,2,125,0.55)' : 'var(--kaf-muted)'} />
+                              </span>
+                              {label}
+                            </>
+                          )}
+                        </NavLink>
+                      );
+                    })}
+                  </motion.div>
+                )}
+              </AnimatePresence>
             </motion.div>
-          ))}
+          )}
+
+          <motion.div
+            initial={{ opacity: 0, x: -10 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ delay: 0.16, duration: 0.3 }}
+            style={{ marginTop: actionItems.length > 0 ? 6 : 0 }}
+          >
+            <SectionToggle
+              label="Reports"
+              icon={FileBarChart2}
+              open={reportsOpen}
+              onToggle={() => setReportsOpen((v) => !v)}
+              isLight={isLight}
+            />
+            <AnimatePresence initial={false}>
+              {reportsOpen && (
+                <motion.div
+                  key="reports-items"
+                  initial={{ height: 0, opacity: 0 }}
+                  animate={{ height: 'auto', opacity: 1 }}
+                  exit={{ height: 0, opacity: 0 }}
+                  transition={{ duration: 0.22, ease: [0.4, 0, 0.2, 1] }}
+                  style={{ overflow: 'hidden', paddingLeft: 4 }}
+                >
+                  {REPORT_PLACEHOLDERS.map((label) => (
+                    <div
+                      key={label}
+                      className="kaf-nav-item"
+                      title="Coming soon"
+                      style={{
+                        opacity: 0.45,
+                        cursor: 'not-allowed',
+                        pointerEvents: 'none',
+                        userSelect: 'none',
+                      }}
+                      aria-disabled="true"
+                    >
+                      <span style={navIconWrap(false, isLight)}>
+                        <FileBarChart2 size={13} color={isLight ? 'rgba(107,2,125,0.4)' : 'var(--kaf-muted)'} />
+                      </span>
+                      <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        {label}
+                      </span>
+                    </div>
+                  ))}
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </motion.div>
         </nav>
 
         {/* User pill (logout + theme toggle) */}
@@ -237,7 +353,6 @@ export default function Layout() {
               </div>
             </div>
 
-            {/* Theme toggle (icon-only) */}
             <button
               onClick={toggle}
               title={isLight ? 'Switch to dark mode' : 'Switch to light mode'}
@@ -249,7 +364,6 @@ export default function Layout() {
               {isLight ? <Moon size={13} /> : <Sun size={13} />}
             </button>
 
-            {/* Sign out */}
             <button
               onClick={() => { logout(); navigate('/login', { replace: true }); }}
               title="Sign out"
@@ -313,6 +427,99 @@ export default function Layout() {
       </main>
     </div>
   );
+}
+
+function SectionToggle({
+  label,
+  icon: Icon,
+  open,
+  onToggle,
+  isLight,
+}: {
+  label: string;
+  icon: typeof Zap;
+  open: boolean;
+  onToggle: () => void;
+  isLight: boolean;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onToggle}
+      aria-expanded={open}
+      style={{
+        width: '100%',
+        display: 'flex',
+        alignItems: 'center',
+        gap: 8,
+        padding: '10px 10px',
+        marginBottom: 2,
+        border: 'none',
+        borderRadius: 8,
+        cursor: 'pointer',
+        background: open
+          ? (isLight ? 'rgba(107,2,125,0.10)' : 'rgba(147,51,234,0.16)')
+          : 'transparent',
+        color: isLight ? '#4a0160' : '#e9d5ff',
+        fontSize: 12.5,
+        fontWeight: 700,
+        textTransform: 'uppercase',
+        letterSpacing: '1.4px',
+        transition: 'background .15s ease',
+      }}
+      onMouseEnter={(e) => {
+        if (!open) {
+          e.currentTarget.style.background = isLight
+            ? 'rgba(107,2,125,0.06)'
+            : 'rgba(147,51,234,0.10)';
+        }
+      }}
+      onMouseLeave={(e) => {
+        if (!open) e.currentTarget.style.background = 'transparent';
+      }}
+    >
+      <span style={{
+        display: 'inline-flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        width: 24,
+        height: 24,
+        borderRadius: 6,
+        flexShrink: 0,
+        background: open
+          ? 'linear-gradient(135deg, var(--kaf-purple) 0%, var(--kaf-purple-deep) 100%)'
+          : isLight ? 'rgba(107,2,125,0.08)' : 'rgba(147,51,234,0.14)',
+        boxShadow: open ? '0 2px 8px rgba(147,51,234,0.35)' : 'none',
+      }}>
+        <Icon size={13} color={open ? '#fff' : isLight ? 'rgba(107,2,125,0.65)' : 'var(--kaf-muted)'} />
+      </span>
+      <span style={{ flex: 1, textAlign: 'left' }}>{label}</span>
+      <motion.span
+        animate={{ rotate: open ? 180 : 0 }}
+        transition={{ duration: 0.2 }}
+        style={{ display: 'inline-flex', color: isLight ? 'rgba(107,2,125,0.55)' : 'var(--kaf-muted)' }}
+      >
+        <ChevronDown size={14} />
+      </motion.span>
+    </button>
+  );
+}
+
+function navIconWrap(isActive: boolean, isLight: boolean): React.CSSProperties {
+  return {
+    display: 'inline-flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    width: 24,
+    height: 24,
+    background: isActive
+      ? 'linear-gradient(135deg, var(--kaf-purple) 0%, var(--kaf-purple-deep) 100%)'
+      : isLight ? 'rgba(107,2,125,0.08)' : 'rgba(147,51,234,0.14)',
+    borderRadius: 6,
+    flexShrink: 0,
+    transition: 'all .2s',
+    boxShadow: isActive ? '0 2px 8px rgba(147,51,234,0.35)' : 'none',
+  };
 }
 
 const iconActionBtn: React.CSSProperties = {
