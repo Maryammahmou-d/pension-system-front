@@ -48,15 +48,15 @@ type ActionNavItem = LinkedAction | PlaceholderAction;
 /** Access Actions order — linked pages + placeholders for not-yet-built screens. */
 const ACTIONS_ITEMS: ActionNavItem[] = [
   { kind: 'link', to: '/users', label: 'User Management', icon: UserCog, superuserOnly: true },
-  { kind: 'placeholder', label: 'Update Unit Price', icon: TrendingUp },
-  { kind: 'placeholder', label: 'Run Monthly Charges', icon: CalendarClock },
+  { kind: 'link', to: '/unit-prices/update', label: 'Update Unit Price', icon: TrendingUp },
+  { kind: 'link', to: '/financial/run-monthly-charges', label: 'Run Monthly Charges', icon: CalendarClock },
   { kind: 'placeholder', label: 'Run Balance Dashboard', icon: LayoutDashboard },
   { kind: 'link', to: '/companies/add', label: 'Add New Company', icon: Building2, superuserOnly: true },
   { kind: 'link', to: '/companies/edit', label: 'Edit Existing Company', icon: Pencil, superuserOnly: true },
   { kind: 'link', to: '/contributions/add', label: 'Add New Contributions', icon: PlusCircle, superuserOnly: true },
   { kind: 'link', to: '/contributions/edit', label: 'Edit Existing Contributions', icon: Pencil, superuserOnly: true },
-  { kind: 'placeholder', label: 'Add New Vesting Rules', icon: Scale },
-  { kind: 'placeholder', label: 'Edit Existing Vesting', icon: Scale },
+  { kind: 'link', to: '/financial/add-vesting-rules', label: 'Add New Vesting Rules', icon: Scale },
+  { kind: 'link', to: '/financial/edit-vesting-rules', label: 'Edit Existing Vesting', icon: Scale },
   { kind: 'link', to: '/employees/add', label: 'Add New Employee', icon: UserPlus, superuserOnly: true },
   { kind: 'link', to: '/employees/import', label: 'Import Employees', icon: Upload, superuserOnly: true },
   { kind: 'link', to: '/employees/edit', label: 'Edit Existing Employee', icon: Pencil, superuserOnly: true },
@@ -64,33 +64,36 @@ const ACTIONS_ITEMS: ActionNavItem[] = [
   { kind: 'link', to: '/billing/settle-invoice', label: 'Settle Invoice', icon: BadgeCheck, permission: 'permSettleInvoice' },
   { kind: 'link', to: '/billing/cancel-invoice', label: 'Cancel Invoice', icon: FileX2, permission: 'permCancelInvoice' },
   { kind: 'link', to: '/top-ups/add', label: 'Add Top Up', icon: Wallet, permission: 'permAddTopUp' },
-  { kind: 'placeholder', label: 'Employee Funds Withdrawal', icon: Banknote },
+  { kind: 'link', to: '/financial/employee-funds-withdrawal', label: 'Employee Funds Withdrawal', icon: Banknote },
   { kind: 'link', to: '/employees/terminate', label: 'Terminate Employee', icon: UserX, superuserOnly: true },
   { kind: 'link', to: '/companies/terminate', label: 'Terminate Company', icon: Building, superuserOnly: true },
   { kind: 'link', to: '/employees/terminate-bulk', label: 'Terminate Employees in Bulk', icon: Users, superuserOnly: true },
   { kind: 'link', to: '/top-ups/bulk', label: 'Top Up Employees in Bulk', icon: Upload, permission: 'permBulkTopUp' },
 ];
 
-const REPORT_PLACEHOLDERS: string[] = [
-  'View Unit Prices',
-  'Unsettled Invoices',
-  'Extract Company Transactions',
-  'Extract Employee Transactions',
-  'Extract Transactions Between Dates',
-  'Extract Invoice Details',
-  'Extract Movement Summary Between Dates',
-  'Extract Movement Summary for a day',
-  'Extract Companies Funds',
-  'Net Company Funds - Modified Date',
-  'Net Employee Funds',
-  'Net Funds',
-  'Net Units',
-  'Estimate Employee Termination',
-  'Employee Extract for App',
-  'Generate Company Balance Reports',
-  'Generate Employee Balance Report',
-  'Extract Employee',
-  'Generate Aggregated Employee Balance Report',
+type ReportItem = { label: string } | { label: string; to: string };
+
+const REPORT_ITEMS: ReportItem[] = [
+  { label: 'View Unit Prices' },
+  { label: 'Unsettled Invoices' },
+  { label: 'Extract Company Transactions' },
+  { label: 'Extract Employee Transactions' },
+  { label: 'Extract Transactions Between Dates' },
+  { label: 'Extract Invoice Details' },
+  { label: 'Extract Movement Summary Between Dates' },
+  { label: 'Extract Movement Summary for a day' },
+  { label: 'Extract Companies Funds' },
+  { label: 'Net Company Funds - Modified Date', to: '/reports/net-company-funds-modified-date' },
+  { label: 'Net Company Funds - Payment Date', to: '/financial/net-company-funds-payment-date' },
+  { label: 'Net Employee Funds', to: '/financial/net-employee-funds' },
+  { label: 'Net Funds', to: '/financial/net-funds' },
+  { label: 'Net Units', to: '/financial/net-units' },
+  { label: 'Estimate Employee Termination', to: '/financial/estimate-employee-termination' },
+  { label: 'Employee Extract for App' },
+  { label: 'Generate Company Balance Reports' },
+  { label: 'Generate Employee Balance Report' },
+  { label: 'Extract Employee' },
+  { label: 'Generate Aggregated Employee Balance Report' },
 ];
 
 export default function Layout() {
@@ -288,27 +291,51 @@ export default function Layout() {
                   transition={{ duration: 0.22, ease: [0.4, 0, 0.2, 1] }}
                   style={{ overflow: 'hidden', paddingLeft: 4 }}
                 >
-                  {REPORT_PLACEHOLDERS.map((label) => (
-                    <div
-                      key={label}
-                      className="kaf-nav-item"
-                      title="Coming soon"
-                      style={{
-                        opacity: 0.45,
-                        cursor: 'not-allowed',
-                        pointerEvents: 'none',
-                        userSelect: 'none',
-                      }}
-                      aria-disabled="true"
-                    >
-                      <span style={navIconWrap(false, isLight)}>
-                        <FileBarChart2 size={13} color={isLight ? 'rgba(107,2,125,0.4)' : 'var(--kaf-muted)'} />
-                      </span>
-                      <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                        {label}
-                      </span>
-                    </div>
-                  ))}
+                  {REPORT_ITEMS.map((item) => {
+                    if ('to' in item) {
+                      return (
+                        <NavLink
+                          key={item.to}
+                          to={item.to}
+                          className={({ isActive }) =>
+                            isActive ? 'kaf-nav-item kaf-nav-item--active' : 'kaf-nav-item'
+                          }
+                        >
+                          {({ isActive }) => (
+                            <>
+                              <span style={navIconWrap(isActive, isLight)}>
+                                <FileBarChart2 size={13} color={isActive ? '#fff' : isLight ? 'rgba(107,2,125,0.55)' : 'var(--kaf-muted)'} />
+                              </span>
+                              {item.label}
+                            </>
+                          )}
+                        </NavLink>
+                      );
+                    }
+
+                    const { label } = item;
+                    return (
+                      <div
+                        key={label}
+                        className="kaf-nav-item"
+                        title="Coming soon"
+                        style={{
+                          opacity: 0.45,
+                          cursor: 'not-allowed',
+                          pointerEvents: 'none',
+                          userSelect: 'none',
+                        }}
+                        aria-disabled="true"
+                      >
+                        <span style={navIconWrap(false, isLight)}>
+                          <FileBarChart2 size={13} color={isLight ? 'rgba(107,2,125,0.4)' : 'var(--kaf-muted)'} />
+                        </span>
+                        <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                          {label}
+                        </span>
+                      </div>
+                    );
+                  })}
                 </motion.div>
               )}
             </AnimatePresence>

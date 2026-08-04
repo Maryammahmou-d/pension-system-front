@@ -19,13 +19,23 @@ import SettleInvoice from './pages/Invoicing & Top up Operations/SettleInvoice';
 import CancelInvoice from './pages/Invoicing & Top up Operations/CancelInvoice';
 import AddTopUp from './pages/Invoicing & Top up Operations/AddTopUp';
 import BulkTopUp from './pages/Invoicing & Top up Operations/BulkTopUp';
+import UpdateUnitPrice from './pages/Financial/UnitPrices/UpdateUnitPrice';
+import NetCompanyFundsModifiedDate from './pages/Financial/Reports/NetCompanyFundsModifiedDate';
+import NetCompanyFundsPaymentDate from './pages/Financial/Reports/NetCompanyFundsPaymentDate';
+import NetEmployeeFunds from './pages/Financial/Reports/NetEmployeeFunds';
+import NetFunds from './pages/Financial/Reports/NetFunds';
+import NetUnits from './pages/Financial/Reports/NetUnits';
+import RunMonthlyCharges from './pages/Financial/RunMonthlyCharges';
+import AddVestingRules from './pages/Financial/AddVestingRules';
+import EditVestingRules from './pages/Financial/EditVestingRules';
+import EmployeeFundsWithdrawal from './pages/Financial/EmployeeFundsWithdrawal';
+import EstimateEmployeeTermination from './pages/Financial/Reports/EstimateEmployeeTermination';
 import { useAuth } from './lib/auth';
 import { ThemeProvider } from './lib/theme';
 import { AuthProvider } from './lib/auth';
 
 function DefaultRoute() {
   const { user, has } = useAuth();
-
   if (!user) return <Navigate to="/login" replace />;
   if (has('permCreateInvoice')) return <Navigate to="/billing/create-invoice" replace />;
   if (has('permSettleInvoice')) return <Navigate to="/billing/settle-invoice" replace />;
@@ -97,6 +107,94 @@ function App() {
                 element={
                   <ProtectedRoute permission="permBulkTopUp">
                     <BulkTopUp />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="unit-prices/update"
+                element={
+                  <ProtectedRoute>
+                    <UpdateUnitPrice />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="reports/net-company-funds-modified-date"
+                element={
+                  <ProtectedRoute>
+                    <NetCompanyFundsModifiedDate />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="financial/net-company-funds-payment-date"
+                element={
+                  <ProtectedRoute>
+                    <NetCompanyFundsPaymentDate />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="financial/net-employee-funds"
+                element={
+                  <ProtectedRoute>
+                    <NetEmployeeFunds />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="financial/net-funds"
+                element={
+                  <ProtectedRoute>
+                    <NetFunds />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="financial/net-units"
+                element={
+                  <ProtectedRoute>
+                    <NetUnits />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="financial/run-monthly-charges"
+                element={
+                  <ProtectedRoute>
+                    <RunMonthlyCharges />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="financial/add-vesting-rules"
+                element={
+                  <ProtectedRoute>
+                    <AddVestingRules />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="financial/edit-vesting-rules"
+                element={
+                  <ProtectedRoute>
+                    <EditVestingRules />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="financial/employee-funds-withdrawal"
+                element={
+                  <ProtectedRoute>
+                    <EmployeeFundsWithdrawal />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="financial/estimate-employee-termination"
+                element={
+                  <ProtectedRoute>
+                    <EstimateEmployeeTermination />
                   </ProtectedRoute>
                 }
               />

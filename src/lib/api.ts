@@ -303,4 +303,4 @@ export const usersApi = {
   },
 };
 
-export { invoicesApi, topUpsApi, lookupsApi, dateHelpers } from './rubixApi';
+export { invoicesApi, topUpsApi, lookupsApi, unitPricesApi, netCompanyFundsApi, netCompanyFundsPaymentDateApi, netEmployeeFundsApi, netFundsApi, netUnitsApi, monthlyChargesApi, vestingRulesApi, employeeFundsWithdrawalApi, employeeTerminationApi, dateHelpers } from './rubixApi';

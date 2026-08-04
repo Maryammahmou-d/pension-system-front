@@ -248,3 +248,161 @@ export interface BulkTopUpResult {
   failed: number;
   rows: BulkTopUpRowResult[];
 }
+
+export interface FundNetSummary {
+  fund: number;
+  eeUnits: number;
+  veeUnits: number;
+  erUnits: number;
+  totalUnits: number;
+  unitPrice: number;
+  eeFunds: number;
+  veeFunds: number;
+  erFunds: number;
+  totalFunds: number;
+}
+
+export interface NetCompanyFundsResult {
+  companyNumber: string;
+  companyName: string;
+  valuationDate: string;
+  rows: FundNetSummary[];
+  totalEEFunds: number;
+  totalVEEFunds: number;
+  totalERFunds: number;
+  totalFunds: number;
+}
+
+export interface NetEmployeeFundsResult {
+  companyNumber: string;
+  companyName: string;
+  employeeNumber: string;
+  employeeName: string;
+  valuationDate: string;
+  rows: FundNetSummary[];
+  totalEEFunds: number;
+  totalVEEFunds: number;
+  totalERFunds: number;
+  totalFunds: number;
+}
+
+export interface NetFundsResult {
+  valuationDate: string;
+  rows: FundNetSummary[];
+  totalEEFunds: number;
+  totalVEEFunds: number;
+  totalERFunds: number;
+  totalFunds: number;
+}
+
+export interface FundUnitRow {
+  fund: number;
+  eeUnits: number;
+  veeUnits: number;
+  erUnits: number;
+  totalUnits: number;
+}
+
+export interface NetUnitsResult {
+  valuationDate: string;
+  rows: FundUnitRow[];
+  totalEEUnits: number;
+  totalVEEUnits: number;
+  totalERUnits: number;
+  totalUnits: number;
+}
+
+export interface MonthlyChargeRun {
+  paymentDate: string;
+  runDate: string;
+  month: number;
+  year: number;
+  processedCount: number;
+}
+
+export interface MonthlyChargesResult {
+  run: MonthlyChargeRun;
+  previousRuns: MonthlyChargeRun[];
+}
+
+export interface VestingRule {
+  companyNumber: string;
+  year1: number;
+  year2: number;
+  year3: number;
+  year4: number;
+  year5: number;
+  year6: number;
+  year7: number;
+  year8: number;
+  year9: number;
+  year10: number;
+}
+
+export interface VestingRuleSummary extends VestingRule {}
+
+export interface WithdrawalRow {
+  fund: number;
+  employeeFundUnits: number;
+  voluntaryEmployeeFundUnits: number;
+  employerFundUnits: number;
+  unitPrice: number;
+  employeeFundTotal: number;
+  voluntaryEmployeeFundTotal: number;
+  employerFundTotal: number;
+  availableEmployeeFund: number;
+  availableVoluntaryEmployeeFund: number;
+  availableEmployerFund: number;
+}
+
+export interface EmployeeFundsWithdrawalEstimate {
+  companyNumber: string;
+  companyName: string;
+  employeeNumber: string;
+  employeeName: string;
+  withdrawalDate: string;
+  rows: WithdrawalRow[];
+  charges: {
+    ee: number;
+    voluntaryEE: number;
+    er: number;
+  };
+  maximumWithdrawalPercentage: number;
+  maximumWithdrawalCount: number;
+  withdrawalCountInPast365Days: number;
+  vestingRulePercentage: number;
+  totalEmployeeFund: number;
+  totalVoluntaryEmployeeFund: number;
+  totalEmployerFund: number;
+  availableEmployeeFund: number;
+  availableVoluntaryEmployeeFund: number;
+  availableEmployerFund: number;
+}
+
+export interface EmployeeFundsWithdrawalResult {
+  reference: string;
+  message: string;
+}
+
+export interface TerminationFundRow {
+  fund: number;
+  employeeFund: number;
+  voluntaryEmployeeFund: number;
+  employerFund: number;
+  unitPrice: number;
+  total: number;
+}
+
+export interface EmployeeTerminationEstimate {
+  companyNumber: string;
+  companyName: string;
+  employeeNumber: string;
+  employeeName: string;
+  terminationDate: string;
+  path: string;
+  rows: TerminationFundRow[];
+  totalEmployeeFund: number;
+  totalVoluntaryEmployeeFund: number;
+  totalEmployerFund: number;
+  total: number;
+}
