@@ -10,6 +10,7 @@ import type {
   UserSecurityRole,
 } from '../types';
 import { DEFAULT_USER_PASSWORD } from '../types';
+import { API_BASE_URL, http } from './httpClient';
 
 // ── Token storage ────────────────────────────────────────────────
 const TOKEN_KEY = 'kaf_rubix_token';
@@ -35,7 +36,7 @@ export const userStorage = {
 
 // ── Axios instances (shared interceptors) ────────────────────────
 const authApiClient = axios.create({
-  baseURL: '/api/auth',
+  baseURL: `${API_BASE_URL}/auth`,
   headers: { 'Content-Type': 'application/json' },
 });
 
@@ -115,10 +116,53 @@ export function permissionsForRole(role: UserSecurityRole): {
   }
 }
 
+/** Numeric `UserSecurity` codes as stored in the backend `users` table. */
+export const ROLE_BY_SECURITY_LEVEL: Record<number, UserSecurityRole> = {
+  1: 'Admin',
+  2: 'Investment',
+  3: 'Operations',
+  4: 'Actuarial',
+  5: 'Tech',
+  6: 'CRM',
+};
+
+const SECURITY_LEVEL_BY_ROLE = Object.fromEntries(
+  Object.entries(ROLE_BY_SECURITY_LEVEL).map(([level, role]) => [role, Number(level)]),
+) as Record<UserSecurityRole, number>;
+
 export function securityLevelForRole(role: UserSecurityRole | undefined): number {
-  if (role === 'Admin') return 1;
-  if (role === 'Tech') return 5;
-  return 3;
+  if (!role) return 3;
+  return SECURITY_LEVEL_BY_ROLE[role] ?? 3;
+}
+
+export function roleForSecurityLevel(level: number | null | undefined): UserSecurityRole {
+  return ROLE_BY_SECURITY_LEVEL[Number(level)] ?? 'Actuarial';
+}
+
+/** Raw row shape returned by `GET {API_BASE_URL}/users`. */
+export interface BackendUserRow {
+  userId: number;
+  userLogin: string;
+  fullName: string | null;
+  password?: string | null;
+  userSecurity: number;
+}
+
+function mapBackendUser(row: BackendUserRow): UserDto {
+  const role = roleForSecurityLevel(row.userSecurity);
+  const { isSuperuser, perms } = permissionsForRole(role);
+  const username = row.userLogin ?? '';
+  return {
+    id: row.userId,
+    username,
+    email: `${username.toLowerCase()}@rubix.local`,
+    fullName: row.fullName ?? username,
+    userSecurity: role,
+    isSuperuser,
+    isActive: true,
+    mustChangePassword: false,
+    ...perms,
+  };
 }
 
 let _users: UserDto[] = [
@@ -179,6 +223,19 @@ const _passwords: Record<string, string> = {
 let _nextId = 5;
 const delay = () => new Promise<void>((r) => setTimeout(r, 120));
 
+let _loadedFromBackend = false;
+
+/** Pulls the backend user list once so mock-only flows (login) see real users. */
+async function ensureUsersLoaded(): Promise<void> {
+  if (_loadedFromBackend) return;
+  try {
+    await usersApi.list();
+    _loadedFromBackend = true;
+  } catch {
+    // Backend unreachable — fall back to the local seed users.
+  }
+}
+
 function findByLogin(identifier: string): UserDto | undefined {
   const key = identifier.trim().toLowerCase();
   return _users.find(
@@ -187,7 +244,21 @@ function findByLogin(identifier: string): UserDto | undefined {
 }
 
 export const usersApi = {
-  list: async (): Promise<UserDto[]> => { await delay(); return [..._users]; },
+  list: async (): Promise<UserDto[]> => {
+    const { data } = await http.get<BackendUserRow[]>('/users');
+    const mapped = data.map(mapBackendUser);
+
+    // Keep the local store in sync so login / edit flows see the same users.
+    _users = mapped;
+    _nextId = mapped.reduce((max, u) => Math.max(max, u.id), 0) + 1;
+    for (const row of data) {
+      if (row.userLogin && row.password) {
+        _passwords[row.userLogin.toLowerCase()] = row.password;
+      }
+    }
+
+    return [...mapped];
+  },
 
   get: async (id: number): Promise<UserDto> => {
     await delay();
@@ -197,32 +268,26 @@ export const usersApi = {
   },
 
   create: async (req: CreateUserRequest): Promise<UserDto> => {
-    await delay();
     const username = req.username.trim();
     if (!username) throw new Error('Login ID is required.');
     if (!req.fullName?.trim()) throw new Error('Full Name is required.');
     if (!req.userSecurity) throw new Error('User Security is required.');
     if (findByLogin(username)) throw new Error('Login ID already exists.');
 
-    const { isSuperuser, perms } = permissionsForRole(req.userSecurity);
-    const password = req.password ?? DEFAULT_USER_PASSWORD;
-    const email = (req.email?.trim() || `${username}@rubix.local`).toLowerCase();
+    const password = req.password?.trim() || DEFAULT_USER_PASSWORD;
 
-    const u: UserDto = {
-      id: _nextId++,
-      username,
-      email,
+    const { data } = await http.post<BackendUserRow>('/users', {
+      userLogin: username,
       fullName: req.fullName.trim(),
-      userSecurity: req.userSecurity,
-      isSuperuser: req.isSuperuser ?? isSuperuser,
-      isActive: true,
-      mustChangePassword: true,
-      ...perms,
-    };
+      password,
+      userSecurity: securityLevelForRole(req.userSecurity),
+    });
 
-    _users = [..._users, u];
-    _passwords[username.toLowerCase()] = password;
-    return { ...u };
+    const created = mapBackendUser(data);
+    _users = [..._users, created];
+    _nextId = Math.max(_nextId, created.id + 1);
+    _passwords[created.username.toLowerCase()] = password;
+    return { ...created };
   },
 
   update: async (id: number, req: UpdateUserRequest): Promise<UserDto> => {
@@ -269,7 +334,7 @@ export const usersApi = {
   },
 
   authenticate: async (identifier: string, password: string): Promise<UserDto> => {
-    await delay();
+    await ensureUsersLoaded();
     const u = findByLogin(identifier);
     if (!u || !u.isActive) {
       throw Object.assign(new Error('Invalid credentials.'), { isAuthError: true });
