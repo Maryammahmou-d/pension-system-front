@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react';
 import { Navigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../lib/auth';
-import type { PermissionKey } from '../types';
+import type { PermissionKey, UserSecurityRole } from '../types';
 
 interface Props {
   children: ReactNode;
@@ -12,13 +12,14 @@ interface Props {
   permission?: PermissionKey;
   /** Restrict to superusers only — used for the user management page. */
   superuserOnly?: boolean;
+  /** Allow if superuser OR user.userSecurity is in this list. */
+  roles?: UserSecurityRole[];
 }
 
-export default function ProtectedRoute({ children, permission, superuserOnly }: Props) {
+export default function ProtectedRoute({ children, permission, superuserOnly, roles }: Props) {
   const { user, loading, has } = useAuth();
   const location = useLocation();
 
-  // Wait for the initial /me check before deciding.
   if (loading) {
     return (
       <div style={{
@@ -35,7 +36,6 @@ export default function ProtectedRoute({ children, permission, superuserOnly }: 
     return <Navigate to="/login" replace state={{ from: location }} />;
   }
 
-  // Force the user through the change-password flow until they comply.
   if (user.mustChangePassword && location.pathname !== '/change-password') {
     return <Navigate to="/change-password" replace />;
   }
@@ -46,6 +46,11 @@ export default function ProtectedRoute({ children, permission, superuserOnly }: 
 
   if (permission && !has(permission)) {
     return <Navigate to="/" replace />;
+  }
+
+  if (roles && roles.length > 0) {
+    const allowed = user.isSuperuser || roles.includes(user.userSecurity);
+    if (!allowed) return <Navigate to="/" replace />;
   }
 
   return <>{children}</>;

@@ -965,6 +965,39 @@ export const employeeTerminationApi = {
   },
 };
 
+// ── Reports (mock extract) ───────────────────────────────────────
+
+export type ReportExtractFormat = 'pdf' | 'excel' | 'data' | 'transactions' | 'records';
+
+export interface ReportExtractResult {
+  ok: true;
+  message: string;
+  reportKey: string;
+  format: ReportExtractFormat;
+}
+
+export const reportsApi = {
+  extract: async (
+    reportKey: string,
+    format: ReportExtractFormat,
+    _payload?: Record<string, unknown>,
+  ): Promise<ReportExtractResult> => {
+    await delay(280);
+    const label =
+      format === 'pdf' ? 'PDF'
+        : format === 'excel' ? 'Excel'
+          : format === 'transactions' ? 'transactions'
+            : format === 'records' ? 'records'
+              : 'data';
+    return {
+      ok: true,
+      reportKey,
+      format,
+      message: `Mock ${label} extract completed for ${reportKey}.`,
+    };
+  },
+};
+
 /** Date helpers shared by pages */
 export const dateHelpers = {
   todayIso,

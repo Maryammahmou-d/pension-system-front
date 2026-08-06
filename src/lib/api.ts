@@ -303,4 +303,21 @@ export const usersApi = {
   },
 };
 
-export { invoicesApi, topUpsApi, lookupsApi, unitPricesApi, netCompanyFundsApi, netCompanyFundsPaymentDateApi, netEmployeeFundsApi, netFundsApi, netUnitsApi, monthlyChargesApi, vestingRulesApi, employeeFundsWithdrawalApi, employeeTerminationApi, dateHelpers } from './rubixApi';
+export {
+  invoicesApi,
+  topUpsApi,
+  lookupsApi,
+  unitPricesApi,
+  netCompanyFundsApi,
+  netCompanyFundsPaymentDateApi,
+  netEmployeeFundsApi,
+  netFundsApi,
+  netUnitsApi,
+  monthlyChargesApi,
+  vestingRulesApi,
+  employeeFundsWithdrawalApi,
+  employeeTerminationApi,
+  reportsApi,
+  dateHelpers,
+} from './rubixApi';
+export type { ReportExtractFormat, ReportExtractResult } from './rubixApi';

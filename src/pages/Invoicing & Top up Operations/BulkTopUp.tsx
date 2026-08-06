@@ -5,6 +5,7 @@ import { Upload, CheckCircle2, AlertCircle } from 'lucide-react';
 import ExcelJS from 'exceljs';
 import PageHeader from '../../components/PageHeader';
 import { lookupsApi, topUpsApi } from '../../lib/api';
+import { mockExportContents, saveFileWithPicker, suggestedNameFromPath } from '../../lib/saveFile';
 import type { BulkTopUpResult, BulkTopUpRow, CompanySummary } from '../../types';
 
 function cellText(value: ExcelJS.CellValue): string {
@@ -150,6 +151,19 @@ export default function BulkTopUp() {
         rows,
         path: path || undefined,
       });
+      const saved = await saveFileWithPicker({
+        suggestedName: suggestedNameFromPath(path, `bulk-top-up-${companyNumber}.txt`),
+        contents: mockExportContents('Bulk Top Up', {
+          companyNumber,
+          processed: res.processed,
+          succeeded: res.succeeded,
+          failed: res.failed,
+        }),
+      });
+      if (saved === 'cancelled') {
+        setResult(res);
+        return;
+      }
       setResult(res);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Bulk top-up failed');
@@ -193,7 +207,7 @@ export default function BulkTopUp() {
                 className="kaf-input"
                 value={path}
                 onChange={(e) => setPath(e.target.value)}
-                placeholder="Optional export label"
+                placeholder="Optional — choose location in the save dialog"
                 disabled={loading}
               />
             </Field>

@@ -23,7 +23,8 @@ import {
 } from 'lucide-react';
 import { useTheme } from '../lib/theme';
 import { useAuth } from '../lib/auth';
-import type { PermissionKey } from '../types';
+import type { PermissionKey, UserSecurityRole } from '../types';
+import { canAccessReport, REPORT_ROLES } from '../lib/reportAccess';
 
 type IconType = typeof LayoutDashboard;
 
@@ -35,6 +36,7 @@ interface LinkedAction {
   end?: boolean;
   permission?: PermissionKey;
   superuserOnly?: boolean;
+  roles?: UserSecurityRole[];
 }
 
 interface PlaceholderAction {
@@ -45,12 +47,22 @@ interface PlaceholderAction {
 
 type ActionNavItem = LinkedAction | PlaceholderAction;
 
+interface LinkedReport {
+  kind: 'link';
+  to: string;
+  label: string;
+  icon: IconType;
+  roles?: UserSecurityRole[];
+}
+
+type ReportNavItem = LinkedReport | PlaceholderAction;
+
 /** Access Actions order — linked pages + placeholders for not-yet-built screens. */
 const ACTIONS_ITEMS: ActionNavItem[] = [
   { kind: 'link', to: '/users', label: 'User Management', icon: UserCog, superuserOnly: true },
   { kind: 'link', to: '/unit-prices/update', label: 'Update Unit Price', icon: TrendingUp },
   { kind: 'link', to: '/financial/run-monthly-charges', label: 'Run Monthly Charges', icon: CalendarClock },
-  { kind: 'placeholder', label: 'Run Balance Dashboard', icon: LayoutDashboard },
+  { kind: 'link', to: '/reporting-operations/hr-balance-dashboard', label: 'Run Balance Dashboard', icon: LayoutDashboard, roles: [...REPORT_ROLES.hrBalanceDashboard] },
   { kind: 'link', to: '/companies/add', label: 'Add New Company', icon: Building2, superuserOnly: true },
   { kind: 'link', to: '/companies/edit', label: 'Edit Existing Company', icon: Pencil, superuserOnly: true },
   { kind: 'link', to: '/contributions/add', label: 'Add New Contributions', icon: PlusCircle, superuserOnly: true },
@@ -71,29 +83,28 @@ const ACTIONS_ITEMS: ActionNavItem[] = [
   { kind: 'link', to: '/top-ups/bulk', label: 'Top Up Employees in Bulk', icon: Upload, permission: 'permBulkTopUp' },
 ];
 
-type ReportItem = { label: string } | { label: string; to: string };
-
-const REPORT_ITEMS: ReportItem[] = [
-  { label: 'View Unit Prices' },
-  { label: 'Unsettled Invoices' },
-  { label: 'Extract Company Transactions' },
-  { label: 'Extract Employee Transactions' },
-  { label: 'Extract Transactions Between Dates' },
-  { label: 'Extract Invoice Details' },
-  { label: 'Extract Movement Summary Between Dates' },
-  { label: 'Extract Movement Summary for a day' },
-  { label: 'Extract Companies Funds' },
-  { label: 'Net Company Funds - Modified Date', to: '/reports/net-company-funds-modified-date' },
-  { label: 'Net Company Funds - Payment Date', to: '/financial/net-company-funds-payment-date' },
-  { label: 'Net Employee Funds', to: '/financial/net-employee-funds' },
-  { label: 'Net Funds', to: '/financial/net-funds' },
-  { label: 'Net Units', to: '/financial/net-units' },
-  { label: 'Estimate Employee Termination', to: '/financial/estimate-employee-termination' },
-  { label: 'Employee Extract for App' },
-  { label: 'Generate Company Balance Reports' },
-  { label: 'Generate Employee Balance Report' },
-  { label: 'Extract Employee' },
-  { label: 'Generate Aggregated Employee Balance Report' },
+/** Access Reports order — implemented links + remaining placeholders. */
+const REPORTS_ITEMS: ReportNavItem[] = [
+  { kind: 'placeholder', label: 'View Unit Prices', icon: FileBarChart2 },
+  { kind: 'placeholder', label: 'Unsettled Invoices', icon: FileBarChart2 },
+  { kind: 'link', to: '/reporting-operations/company-transactions', label: 'Extract Company Transactions', icon: FileBarChart2, roles: [...REPORT_ROLES.companyTransactions] },
+  { kind: 'link', to: '/reporting-operations/employee-transactions', label: 'Extract Employee Transactions', icon: FileBarChart2, roles: [...REPORT_ROLES.employeeTransactions] },
+  { kind: 'link', to: '/reporting-operations/transactions-between-dates', label: 'Extract Transactions Between Dates', icon: FileBarChart2, roles: [...REPORT_ROLES.transactionsBetweenDates] },
+  { kind: 'link', to: '/reporting-operations/invoice-details', label: 'Extract Invoice Details', icon: FileBarChart2, roles: [...REPORT_ROLES.invoiceDetails] },
+  { kind: 'link', to: '/reporting-operations/movement-summary-between-dates', label: 'Extract Movement Summary Between Dates', icon: FileBarChart2, roles: [...REPORT_ROLES.movementSummaryBetweenDates] },
+  { kind: 'link', to: '/reporting-operations/movement-summary-for-day', label: 'Extract Movement Summary for a day', icon: FileBarChart2, roles: [...REPORT_ROLES.movementSummaryForDay] },
+  { kind: 'link', to: '/reporting-operations/companies-funds', label: 'Extract Companies Funds', icon: FileBarChart2, roles: [...REPORT_ROLES.companiesFunds] },
+  { kind: 'link', to: '/reports/net-company-funds-modified-date', label: 'Net Company Funds - Modified Date', icon: FileBarChart2 },
+  { kind: 'link', to: '/financial/net-company-funds-payment-date', label: 'Net Company Funds - Payment Date', icon: FileBarChart2 },
+  { kind: 'link', to: '/financial/net-employee-funds', label: 'Net Employee Funds', icon: FileBarChart2 },
+  { kind: 'link', to: '/financial/net-funds', label: 'Net Funds', icon: FileBarChart2 },
+  { kind: 'link', to: '/financial/net-units', label: 'Net Units', icon: FileBarChart2 },
+  { kind: 'link', to: '/financial/estimate-employee-termination', label: 'Estimate Employee Termination', icon: FileBarChart2 },
+  { kind: 'link', to: '/reporting-operations/employee-extract-app', label: 'Employee Extract for App', icon: FileBarChart2, roles: [...REPORT_ROLES.employeeExtractApp] },
+  { kind: 'link', to: '/reporting-operations/company-balance', label: 'Generate Company Balance Reports', icon: FileBarChart2, roles: [...REPORT_ROLES.companyBalance] },
+  { kind: 'link', to: '/reporting-operations/employee-balance', label: 'Generate Employee Balance Report', icon: FileBarChart2, roles: [...REPORT_ROLES.employeeBalance] },
+  { kind: 'link', to: '/reporting-operations/employee-records', label: 'Extract Employee', icon: FileBarChart2, roles: [...REPORT_ROLES.employeeRecords] },
+  { kind: 'link', to: '/reporting-operations/aggregated-employee-balance', label: 'Generate Aggregated Employee Balance Report', icon: FileBarChart2, roles: [...REPORT_ROLES.aggregatedEmployeeBalance] },
 ];
 
 export default function Layout() {
@@ -107,10 +118,20 @@ export default function Layout() {
     if (it.kind === 'placeholder') return true;
     if (it.superuserOnly) return user?.isSuperuser ?? false;
     if (it.permission) return has(it.permission);
+    if (it.roles && it.roles.length > 0) return canAccessReport(user, it.roles);
     return true;
   });
 
+  const reportItems = REPORTS_ITEMS.filter((it) => {
+    if (it.kind === 'placeholder') return true;
+    if (!it.roles || it.roles.length === 0) return true;
+    return canAccessReport(user, it.roles);
+  });
+
   const isOnActionRoute = actionItems.some(
+    (it) => it.kind === 'link' && (location.pathname === it.to || location.pathname.startsWith(it.to + '/')),
+  );
+  const isOnReportRoute = reportItems.some(
     (it) => it.kind === 'link' && (location.pathname === it.to || location.pathname.startsWith(it.to + '/')),
   );
 
@@ -120,6 +141,10 @@ export default function Layout() {
   useEffect(() => {
     if (isOnActionRoute) setActionsOpen(true);
   }, [isOnActionRoute]);
+
+  useEffect(() => {
+    if (isOnReportRoute) setReportsOpen(true);
+  }, [isOnReportRoute]);
 
   return (
     <div style={{ display: 'flex', height: '100vh', overflow: 'hidden', background: 'var(--kaf-bg)' }}>
@@ -291,49 +316,52 @@ export default function Layout() {
                   transition={{ duration: 0.22, ease: [0.4, 0, 0.2, 1] }}
                   style={{ overflow: 'hidden', paddingLeft: 4 }}
                 >
-                  {REPORT_ITEMS.map((item) => {
-                    if ('to' in item) {
+                  {reportItems.map((item) => {
+                    if (item.kind === 'placeholder') {
+                      const Icon = item.icon;
                       return (
-                        <NavLink
-                          key={item.to}
-                          to={item.to}
-                          className={({ isActive }) =>
-                            isActive ? 'kaf-nav-item kaf-nav-item--active' : 'kaf-nav-item'
-                          }
+                        <div
+                          key={item.label}
+                          className="kaf-nav-item"
+                          title="Coming soon"
+                          style={{
+                            opacity: 0.45,
+                            cursor: 'not-allowed',
+                            pointerEvents: 'none',
+                            userSelect: 'none',
+                          }}
+                          aria-disabled="true"
                         >
-                          {({ isActive }) => (
-                            <>
-                              <span style={navIconWrap(isActive, isLight)}>
-                                <FileBarChart2 size={13} color={isActive ? '#fff' : isLight ? 'rgba(107,2,125,0.55)' : 'var(--kaf-muted)'} />
-                              </span>
-                              {item.label}
-                            </>
-                          )}
-                        </NavLink>
+                          <span style={navIconWrap(false, isLight)}>
+                            <Icon size={13} color={isLight ? 'rgba(107,2,125,0.4)' : 'var(--kaf-muted)'} />
+                          </span>
+                          <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                            {item.label}
+                          </span>
+                        </div>
                       );
                     }
 
-                    const { label } = item;
+                    const { to, label, icon: Icon } = item;
                     return (
-                      <div
-                        key={label}
-                        className="kaf-nav-item"
-                        title="Coming soon"
-                        style={{
-                          opacity: 0.45,
-                          cursor: 'not-allowed',
-                          pointerEvents: 'none',
-                          userSelect: 'none',
-                        }}
-                        aria-disabled="true"
+                      <NavLink
+                        key={to}
+                        to={to}
+                        className={({ isActive }) =>
+                          isActive ? 'kaf-nav-item kaf-nav-item--active' : 'kaf-nav-item'
+                        }
                       >
-                        <span style={navIconWrap(false, isLight)}>
-                          <FileBarChart2 size={13} color={isLight ? 'rgba(107,2,125,0.4)' : 'var(--kaf-muted)'} />
-                        </span>
-                        <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                          {label}
-                        </span>
-                      </div>
+                        {({ isActive }) => (
+                          <>
+                            <span style={navIconWrap(isActive, isLight)}>
+                              <Icon size={13} color={isActive ? '#fff' : isLight ? 'rgba(107,2,125,0.55)' : 'var(--kaf-muted)'} />
+                            </span>
+                            <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                              {label}
+                            </span>
+                          </>
+                        )}
+                      </NavLink>
                     );
                   })}
                 </motion.div>
@@ -559,3 +587,4 @@ const iconActionBtn: React.CSSProperties = {
   flexShrink: 0,
   transition: 'color .15s ease, border-color .15s ease',
 };
+
