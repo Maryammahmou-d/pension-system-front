@@ -3,24 +3,24 @@ import type { CSSProperties, FormEvent } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   UserPlus, UserCheck, UserX, Pencil, X, Check, ShieldAlert, ShieldCheck, Search, UserCog,
-  Eye, EyeOff,
+  KeyRound,
 } from 'lucide-react';
 import axios from 'axios';
 import { usersApi } from '../../lib/api';
 import { useAuth } from '../../lib/auth';
 import PageHeader from '../../components/PageHeader';
-import type { CreateUserRequest, PermissionKey, UpdateUserRequest, UserDto, UserSecurityRole } from '../../types';
+import type { CreateUserRequest, UpdateUserRequest, UserDto, UserSecurityRole } from '../../types';
 import { USER_SECURITY_ROLES } from '../../types';
 
-const PERMISSIONS: { key: PermissionKey; label: string; hint: string }[] = [
-  { key: 'permViewDashboard', label: 'View dashboard', hint: 'Access to home overview' },
-  { key: 'permCreateInvoice', label: 'Create invoice', hint: 'Operations — create company invoices' },
-  { key: 'permSettleInvoice', label: 'Settle invoice', hint: 'CRM / Investment — settle unpaid invoices' },
-  { key: 'permCancelInvoice', label: 'Cancel invoice', hint: 'Tech — cancel unsettled invoices' },
-  { key: 'permAddTopUp', label: 'Add top up', hint: 'Operations — single employee top-up' },
-  { key: 'permBulkTopUp', label: 'Bulk top up', hint: 'Operations — Excel bulk top-up' },
-  { key: 'permManageUsers', label: 'Manage users', hint: 'Administer application users' },
-];
+/** Badge colour per Access UserSecurity role. */
+const ROLE_BADGE: Record<UserSecurityRole, { color: string; bg: string }> = {
+  Admin: { color: '#a855f7', bg: 'rgba(168,85,247,0.12)' },
+  Tech: { color: '#3b82f6', bg: 'rgba(59,130,246,0.12)' },
+  Operations: { color: '#eab308', bg: 'rgba(234,179,8,0.12)' },
+  Investment: { color: '#f59e0b', bg: 'rgba(245,158,11,0.12)' },
+  Actuarial: { color: '#06b6d4', bg: 'rgba(6,182,212,0.12)' },
+  CRM: { color: '#ec4899', bg: 'rgba(236,72,153,0.12)' },
+};
 
 type DialogMode = { type: 'closed' } | { type: 'create' } | { type: 'edit'; user: UserDto };
 
@@ -125,7 +125,7 @@ export default function UserManagement() {
                 <tr>
                   <Th>User</Th>
                   <Th>Email</Th>
-                  <Th>Role</Th>
+                  <Th>User Security</Th>
                   <Th>Status</Th>
                   <Th>Created by</Th>
                   <Th align="right">Actions</Th>
@@ -147,15 +147,9 @@ export default function UserManagement() {
                     </Td>
                     <Td>{u.email}</Td>
                     <Td>
-                      {u.isSuperuser ? (
-                        <Badge color="#a855f7" bg="rgba(168,85,247,0.12)">
-                          <ShieldCheck size={11} /> Superuser
-                        </Badge>
-                      ) : (
-                        <Badge color="var(--kaf-muted)" bg="rgba(120,120,140,0.12)">
-                          User
-                        </Badge>
-                      )}
+                      <Badge {...ROLE_BADGE[u.userSecurity]}>
+                        {u.isSuperuser && <ShieldCheck size={11} />} {u.userSecurity}
+                      </Badge>
                     </Td>
                     <Td>
                       {u.isActive
@@ -275,21 +269,24 @@ function UserDialog({
   const [userSecurity, setUserSecurity] = useState<UserSecurityRole>(
     initial?.userSecurity ?? 'Operations',
   );
-  const [isSuperuser, setIsSuperuser] = useState(initial?.isSuperuser ?? false);
   const [isActive, setIsActive] = useState(initial?.isActive ?? true);
-  const [resetPassword, setResetPassword] = useState(false);
-  const [password, setPassword] = useState('');
-  const [confirmPassword, setConfirmPassword] = useState('');
-  const [showPassword, setShowPassword] = useState(false);
-  const [perms, setPerms] = useState<Record<PermissionKey, boolean>>(() => {
-    const obj = {} as Record<PermissionKey, boolean>;
-    PERMISSIONS.forEach((p) => { obj[p.key] = Boolean(initial?.[p.key]); });
-    return obj;
-  });
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [resetting, setResetting] = useState(false);
+  const [resetDone, setResetDone] = useState(false);
 
-  const passwordRequired = editing && resetPassword;
+  const onResetPassword = async () => {
+    setError(null);
+    setResetting(true);
+    try {
+      await usersApi.resetPassword(initial!.id);
+      setResetDone(true);
+    } catch (err) {
+      setError(extractError(err));
+    } finally {
+      setResetting(false);
+    }
+  };
 
   const onSubmit = async (e: FormEvent) => {
     e.preventDefault();
@@ -317,24 +314,12 @@ function UserDialog({
       return;
     }
 
-    if (passwordRequired) {
-      if (password.length < 8) {
-        setError('Password must be at least 8 characters.');
-        return;
-      }
-      if (password !== confirmPassword) {
-        setError('Passwords do not match.');
-        return;
-      }
-    }
-
     setSubmitting(true);
     try {
+      // Superuser and the perm* flags are derived from userSecurity, so the
+      // role is the only access field worth sending.
       const payload: UpdateUserRequest = {
-        email, fullName, isSuperuser, isActive, userSecurity,
-        resetPassword: resetPassword || undefined,
-        newPassword: resetPassword ? password : undefined,
-        ...perms,
+        email, fullName, isActive, userSecurity,
       };
       await usersApi.update(initial!.id, payload);
       onSaved();
@@ -489,124 +474,37 @@ function UserDialog({
 
         <div style={{
           marginTop: 14, padding: '12px 14px', borderRadius: 10,
-          background: 'rgba(168,85,247,0.06)', border: '1px solid rgba(168,85,247,0.20)'
+          background: 'rgba(245,158,11,0.06)', border: '1px solid rgba(245,158,11,0.20)',
+          display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 14,
         }}>
-          <Toggle
-            checked={isSuperuser}
-            onChange={setIsSuperuser}
-            disabled={submitting}
-            label="Superuser — bypasses all permission checks and can manage users"
-          />
-        </div>
-
-        {!isSuperuser && (
-          <div style={{ marginTop: 18 }}>
-            <h4 style={{
-              margin: '0 0 10px', fontSize: 12.5, color: 'var(--kaf-text)', opacity: 0.55,
-              textTransform: 'uppercase', letterSpacing: '0.5px'
+          {resetDone ? (
+            <div style={{
+              display: 'flex', alignItems: 'center', gap: 8,
+              color: '#10b981', fontSize: 12.5, fontWeight: 600,
             }}>
-              Permissions
-            </h4>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
-              {PERMISSIONS.map((p) => (
-                <label key={p.key} style={{
-                  display: 'flex', alignItems: 'flex-start', gap: 10,
-                  padding: '8px 10px', borderRadius: 8,
-                  border: '1px solid var(--kaf-border-2)',
-                  background: 'var(--kaf-surface-2)', cursor: 'pointer',
-                }}>
-                  <input
-                    type="checkbox"
-                    checked={perms[p.key]}
-                    onChange={(e) => setPerms({ ...perms, [p.key]: e.target.checked })}
-                    disabled={submitting}
-                    style={{ marginTop: 2 }}
-                  />
-                  <div>
-                    <div style={{ color: 'var(--kaf-text)', fontSize: 12.5, fontWeight: 600 }}>
-                      {p.label}
-                    </div>
-                    <div style={{ color: 'var(--kaf-muted-2)', fontSize: 11 }}>{p.hint}</div>
-                  </div>
-                </label>
-              ))}
+              <Check size={14} /> Password reset successfully.
             </div>
-          </div>
-        )}
-
-        <div style={{
-          marginTop: 14, padding: '10px 14px', borderRadius: 10,
-          background: 'rgba(245,158,11,0.06)', border: '1px solid rgba(245,158,11,0.20)'
-        }}>
-          <Toggle
-            checked={resetPassword}
-            onChange={(v) => {
-              setResetPassword(v);
-              if (!v) { setPassword(''); setConfirmPassword(''); }
-            }}
-            disabled={submitting}
-            label="Reset password — set a new password for this user"
-          />
-        </div>
-
-        {passwordRequired && (
-          <div style={{ marginTop: 14 }}>
-            <h4 style={{
-              margin: '0 0 10px', fontSize: 12.5, color: 'var(--kaf-text)', opacity: 0.55,
-              textTransform: 'uppercase', letterSpacing: '0.5px'
-            }}>
-              New password
-            </h4>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-              <Field label="New password">
-                <div style={{ position: 'relative' }}>
-                  <input
-                    type={showPassword ? 'text' : 'password'}
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    disabled={submitting}
-                    className="kaf-input"
-                    style={{ paddingRight: 40 }}
-                    autoComplete="new-password"
-                    placeholder="At least 8 characters"
-                    required={passwordRequired}
-                    minLength={8}
-                  />
-                  <button
-                    type="button" tabIndex={-1}
-                    onClick={() => setShowPassword((s) => !s)}
-                    style={{
-                      position: 'absolute', right: 8, top: '50%', transform: 'translateY(-50%)',
-                      background: 'transparent', border: 'none',
-                      cursor: 'pointer', color: 'var(--kaf-muted)',
-                      display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-                      padding: 6, borderRadius: 6,
-                    }}
-                    aria-label={showPassword ? 'Hide password' : 'Show password'}
-                  >
-                    {showPassword ? <EyeOff size={14} /> : <Eye size={14} />}
-                  </button>
+          ) : (
+            <>
+              <div style={{ minWidth: 0 }}>
+                <div style={{ color: 'var(--kaf-text)', fontSize: 12.5, fontWeight: 600 }}>
+                  Reset password
                 </div>
-              </Field>
-              <Field label="Confirm password">
-                <input
-                  type={showPassword ? 'text' : 'password'}
-                  value={confirmPassword}
-                  onChange={(e) => setConfirmPassword(e.target.value)}
-                  disabled={submitting}
-                  className="kaf-input"
-                  autoComplete="new-password"
-                  placeholder="Re-enter the password"
-                  required={passwordRequired}
-                  minLength={8}
-                />
-              </Field>
-            </div>
-            <p style={{ marginTop: 8, color: 'var(--kaf-muted-2)', fontSize: 11.5 }}>
-              They will be required to change this password on next login.
-            </p>
-          </div>
-        )}
+                <div style={{ color: 'var(--kaf-muted-2)', fontSize: 11.5 }}>
+                  Restores the default password. They must change it on next login.
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={onResetPassword}
+                disabled={submitting || resetting}
+                style={{ ...ghostBtn, flexShrink: 0 }}
+              >
+                <KeyRound size={14} /> {resetting ? 'Resetting…' : 'Reset password'}
+              </button>
+            </>
+          )}
+        </div>
 
         {error && (
           <div style={{

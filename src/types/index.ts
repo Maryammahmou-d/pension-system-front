@@ -59,12 +59,6 @@ export interface LoginRequest {
   password: string;
 }
 
-export interface LoginResponse {
-  token: string;
-  expiresInSeconds: number;
-  user: UserDto;
-}
-
 export interface ChangePasswordRequest {
   currentPassword: string;
   newPassword: string;
@@ -101,10 +95,6 @@ export interface UpdateUserRequest {
   permAddTopUp?: boolean;
   permBulkTopUp?: boolean;
   permManageUsers?: boolean;
-  /** When true, resets the user's password using newPassword and forces change on next login. */
-  resetPassword?: boolean;
-  /** Required when resetPassword=true (min 8 chars). */
-  newPassword?: string;
 }
 
 export interface PagedRecordsResponse<T> {

@@ -1,8 +1,5 @@
 import axios from 'axios';
 import type {
-  LoginRequest,
-  LoginResponse,
-  ChangePasswordRequest,
   CreateUserRequest,
   UpdateUserRequest,
   UserDto,
@@ -10,7 +7,9 @@ import type {
   UserSecurityRole,
 } from '../types';
 import { DEFAULT_USER_PASSWORD } from '../types';
-import { API_BASE_URL, http } from './httpClient';
+import { http } from './httpClient';
+import { canAccessRole } from './access';
+import type { PageKey } from './access';
 
 // ── Token storage ────────────────────────────────────────────────
 const TOKEN_KEY = 'kaf_rubix_token';
@@ -34,38 +33,6 @@ export const userStorage = {
   set: (user: UserDto) => localStorage.setItem(USER_KEY, JSON.stringify(user)),
 };
 
-// ── Axios instances (shared interceptors) ────────────────────────
-const authApiClient = axios.create({
-  baseURL: `${API_BASE_URL}/auth`,
-  headers: { 'Content-Type': 'application/json' },
-});
-
-const attachAuth = (cfg: import('axios').InternalAxiosRequestConfig) => {
-  const token = tokenStorage.get();
-  if (token && cfg.headers) {
-    cfg.headers.set?.('Authorization', `Bearer ${token}`);
-  }
-  return cfg;
-};
-authApiClient.interceptors.request.use(attachAuth);
-
-const onUnauthorized = (error: unknown) => {
-  if (axios.isAxiosError(error) && error.response?.status === 401) {
-    tokenStorage.clear();
-    window.dispatchEvent(new CustomEvent('kaf-rubix:unauthorized'));
-  }
-  return Promise.reject(error);
-};
-authApiClient.interceptors.response.use((r) => r, onUnauthorized);
-
-export const authApi = {
-  login: (req: LoginRequest) =>
-    authApiClient.post<LoginResponse>('/login', req).then((r) => r.data),
-  me: () => authApiClient.get<UserDto>('/me').then((r) => r.data),
-  changePassword: (req: ChangePasswordRequest) =>
-    authApiClient.post<UserDto>('/change-password', req).then((r) => r.data),
-};
-
 // ── In-memory mock user store ────────────────────────────────────
 export const ALL_PERM_KEYS: PermissionKey[] = [
   'permViewDashboard',
@@ -77,43 +44,32 @@ export const ALL_PERM_KEYS: PermissionKey[] = [
   'permManageUsers',
 ];
 
-const nonePerms = (): Record<PermissionKey, boolean> =>
-  Object.fromEntries(ALL_PERM_KEYS.map((k) => [k, false])) as Record<PermissionKey, boolean>;
-
 const allPerms = (): Record<PermissionKey, boolean> =>
   Object.fromEntries(ALL_PERM_KEYS.map((k) => [k, true])) as Record<PermissionKey, boolean>;
 
+/** Each `perm*` flag is backed by a page in the access matrix. */
+const PERM_PAGES: Record<Exclude<PermissionKey, 'permViewDashboard'>, PageKey> = {
+  permCreateInvoice: 'createInvoice',
+  permSettleInvoice: 'settleInvoice',
+  permCancelInvoice: 'cancelInvoice',
+  permAddTopUp: 'addTopUp',
+  permBulkTopUp: 'bulkTopUp',
+  permManageUsers: 'userManagement',
+};
+
+/**
+ * Derives the stored permission flags from the single access matrix in
+ * `access.ts`, so there is only ever one table of roles to maintain.
+ */
 export function permissionsForRole(role: UserSecurityRole): {
   isSuperuser: boolean;
   perms: Record<PermissionKey, boolean>;
 } {
-  const perms = nonePerms();
-  perms.permViewDashboard = true;
-
-  switch (role) {
-    case 'Admin':
-      return { isSuperuser: true, perms: allPerms() };
-    case 'Operations':
-      perms.permCreateInvoice = true;
-      perms.permAddTopUp = true;
-      perms.permBulkTopUp = true;
-      return { isSuperuser: false, perms };
-    case 'Investment':
-    case 'CRM':
-      perms.permSettleInvoice = true;
-      return { isSuperuser: false, perms };
-    case 'Tech':
-      perms.permCreateInvoice = true;
-      perms.permSettleInvoice = true;
-      perms.permCancelInvoice = true;
-      perms.permAddTopUp = true;
-      perms.permBulkTopUp = true;
-      return { isSuperuser: false, perms };
-    case 'Actuarial':
-      return { isSuperuser: false, perms };
-    default:
-      return { isSuperuser: false, perms };
+  const perms = { permViewDashboard: true } as Record<PermissionKey, boolean>;
+  for (const [perm, page] of Object.entries(PERM_PAGES)) {
+    perms[perm as PermissionKey] = canAccessRole(role, page);
   }
+  return { isSuperuser: role === 'Admin', perms };
 }
 
 /** Numeric `UserSecurity` codes as stored in the backend `users` table. */
@@ -138,6 +94,12 @@ export function securityLevelForRole(role: UserSecurityRole | undefined): number
 export function roleForSecurityLevel(level: number | null | undefined): UserSecurityRole {
   return ROLE_BY_SECURITY_LEVEL[Number(level)] ?? 'Actuarial';
 }
+
+/**
+ * Backend route that resets a user's password to the default.
+ * Change this one line when the real endpoint is available.
+ */
+export const RESET_PASSWORD_ENDPOINT = (userId: number) => `/users/${userId}/reset-password`;
 
 /** Raw row shape returned by `GET {API_BASE_URL}/users`. */
 export interface BackendUserRow {
@@ -310,16 +272,24 @@ export const usersApi = {
       if (req[k] !== undefined) next[k] = Boolean(req[k]);
     }
 
-    if (req.resetPassword) {
-      if (!req.newPassword || req.newPassword.length < 8) {
-        throw new Error('New password must be at least 8 characters.');
-      }
-      _passwords[existing.username.toLowerCase()] = req.newPassword;
-      next.mustChangePassword = true;
-    }
-
     _users = _users.map((u) => (u.id === id ? next : u));
     return { ...next };
+  },
+
+  /**
+   * Resets a user's password back to the backend default. No password is
+   * supplied by the caller — the backend decides the new value and flags the
+   * user to change it on next login.
+   *
+   * TODO: point RESET_PASSWORD_ENDPOINT at the real backend route.
+   */
+  resetPassword: async (id: number): Promise<void> => {
+    await http.post(RESET_PASSWORD_ENDPOINT(id));
+    const u = _users.find((x) => x.id === id);
+    if (u) {
+      _users = _users.map((x) => (x.id === id ? { ...x, mustChangePassword: true } : x));
+      delete _passwords[u.username.toLowerCase()];
+    }
   },
 
   remove: async (id: number): Promise<void> => {

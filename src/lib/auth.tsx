@@ -1,6 +1,8 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import type { ReactNode } from 'react';
 import { securityLevelForRole, tokenStorage, userStorage, usersApi } from './api';
+import { canAccess } from './access';
+import type { PageKey } from './access';
 import type { ChangePasswordRequest, LoginRequest, PermissionKey, UserDto } from '../types';
 
 interface AuthState {
@@ -12,6 +14,8 @@ interface AuthState {
   refresh: () => Promise<void>;
   /** Returns true for superusers OR users with the given permission flag. */
   has: (perm: PermissionKey) => boolean;
+  /** Role-matrix check for a page — same gate `ProtectedRoute` applies. */
+  can: (page: PageKey) => boolean;
   /** Access-style security level for settle window rules (1 Admin, 5 Tech). */
   securityLevel: () => number;
 }
@@ -39,12 +43,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (stored) setUser(stored);
     else setUser(null);
     setLoading(false);
-  }, []);
-
-  useEffect(() => {
-    const handler = () => setUser(null);
-    window.addEventListener('kaf-rubix:unauthorized', handler);
-    return () => window.removeEventListener('kaf-rubix:unauthorized', handler);
   }, []);
 
   const login = useCallback(async (req: LoginRequest) => {
@@ -102,6 +100,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return Boolean(user[perm]);
   }, [user]);
 
+  const can = useCallback((page: PageKey) => canAccess(user, page), [user]);
+
   const securityLevel = useCallback(() => {
     if (!user) return 3;
     if (user.isSuperuser) return 1;
@@ -109,8 +109,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [user]);
 
   const value = useMemo<AuthState>(
-    () => ({ user, loading, login, logout, changePassword, refresh, has, securityLevel }),
-    [user, loading, login, logout, changePassword, refresh, has, securityLevel],
+    () => ({ user, loading, login, logout, changePassword, refresh, has, can, securityLevel }),
+    [user, loading, login, logout, changePassword, refresh, has, can, securityLevel],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

@@ -1,23 +1,21 @@
 import type { ReactNode } from 'react';
 import { Navigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../lib/auth';
-import type { PermissionKey, UserSecurityRole } from '../types';
+import { canAccess } from '../lib/access';
+import type { PageKey } from '../lib/access';
 
 interface Props {
   children: ReactNode;
   /**
-   * If provided, the current user must have this permission (or be a superuser).
-   * Otherwise they're redirected to the dashboard.
+   * Page being guarded. The current user must be allowed it by the access
+   * matrix in `access.ts` (Admins bypass); otherwise they're sent to `/`.
+   * Omit for routes any signed-in user may open (e.g. change-password).
    */
-  permission?: PermissionKey;
-  /** Restrict to superusers only — used for the user management page. */
-  superuserOnly?: boolean;
-  /** Allow if superuser OR user.userSecurity is in this list. */
-  roles?: UserSecurityRole[];
+  page?: PageKey;
 }
 
-export default function ProtectedRoute({ children, permission, superuserOnly, roles }: Props) {
-  const { user, loading, has } = useAuth();
+export default function ProtectedRoute({ children, page }: Props) {
+  const { user, loading } = useAuth();
   const location = useLocation();
 
   if (loading) {
@@ -40,17 +38,8 @@ export default function ProtectedRoute({ children, permission, superuserOnly, ro
     return <Navigate to="/change-password" replace />;
   }
 
-  if (superuserOnly && !user.isSuperuser) {
+  if (page && !canAccess(user, page)) {
     return <Navigate to="/" replace />;
-  }
-
-  if (permission && !has(permission)) {
-    return <Navigate to="/" replace />;
-  }
-
-  if (roles && roles.length > 0) {
-    const allowed = user.isSuperuser || roles.includes(user.userSecurity);
-    if (!allowed) return <Navigate to="/" replace />;
   }
 
   return <>{children}</>;
