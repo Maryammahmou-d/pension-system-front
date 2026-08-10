@@ -23,20 +23,18 @@ import {
 } from 'lucide-react';
 import { useTheme } from '../lib/theme';
 import { useAuth } from '../lib/auth';
-import type { PermissionKey, UserSecurityRole } from '../types';
-import { canAccessReport, REPORT_ROLES } from '../lib/reportAccess';
+import { canAccess, PAGE_ROUTES } from '../lib/access';
+import type { PageKey } from '../lib/access';
 
 type IconType = typeof LayoutDashboard;
 
-interface LinkedAction {
+interface LinkedItem {
   kind: 'link';
+  page: PageKey;
   to: string;
   label: string;
   icon: IconType;
   end?: boolean;
-  permission?: PermissionKey;
-  superuserOnly?: boolean;
-  roles?: UserSecurityRole[];
 }
 
 interface PlaceholderAction {
@@ -45,88 +43,73 @@ interface PlaceholderAction {
   icon: IconType;
 }
 
-type ActionNavItem = LinkedAction | PlaceholderAction;
+type NavItem = LinkedItem | PlaceholderAction;
 
-interface LinkedReport {
-  kind: 'link';
-  to: string;
-  label: string;
-  icon: IconType;
-  roles?: UserSecurityRole[];
-}
-
-type ReportNavItem = LinkedReport | PlaceholderAction;
+/** Builds a nav entry whose path and role gate both come from `access.ts`. */
+const link = (page: PageKey, label: string, icon: IconType): LinkedItem =>
+  ({ kind: 'link', page, to: PAGE_ROUTES[page], label, icon });
 
 /** Access Actions order — linked pages + placeholders for not-yet-built screens. */
-const ACTIONS_ITEMS: ActionNavItem[] = [
-  { kind: 'link', to: '/users', label: 'User Management', icon: UserCog, superuserOnly: true },
-  { kind: 'link', to: '/unit-prices/update', label: 'Update Unit Price', icon: TrendingUp },
-  { kind: 'link', to: '/financial/run-monthly-charges', label: 'Run Monthly Charges', icon: CalendarClock },
-  { kind: 'link', to: '/reporting-operations/hr-balance-dashboard', label: 'Run Balance Dashboard', icon: LayoutDashboard, roles: [...REPORT_ROLES.hrBalanceDashboard] },
-  { kind: 'link', to: '/companies/add', label: 'Add New Company', icon: Building2, superuserOnly: true },
-  { kind: 'link', to: '/companies/edit', label: 'Edit Existing Company', icon: Pencil, superuserOnly: true },
-  { kind: 'link', to: '/contributions/add', label: 'Add New Contributions', icon: PlusCircle, superuserOnly: true },
-  { kind: 'link', to: '/contributions/edit', label: 'Edit Existing Contributions', icon: Pencil, superuserOnly: true },
-  { kind: 'link', to: '/financial/add-vesting-rules', label: 'Add New Vesting Rules', icon: Scale },
-  { kind: 'link', to: '/financial/edit-vesting-rules', label: 'Edit Existing Vesting', icon: Scale },
-  { kind: 'link', to: '/employees/add', label: 'Add New Employee', icon: UserPlus, superuserOnly: true },
-  { kind: 'link', to: '/employees/import', label: 'Import Employees', icon: Upload, superuserOnly: true },
-  { kind: 'link', to: '/employees/edit', label: 'Edit Existing Employee', icon: Pencil, superuserOnly: true },
-  { kind: 'link', to: '/billing/create-invoice', label: 'Create Invoice', icon: FilePlus2, permission: 'permCreateInvoice' },
-  { kind: 'link', to: '/billing/settle-invoice', label: 'Settle Invoice', icon: BadgeCheck, permission: 'permSettleInvoice' },
-  { kind: 'link', to: '/billing/cancel-invoice', label: 'Cancel Invoice', icon: FileX2, permission: 'permCancelInvoice' },
-  { kind: 'link', to: '/top-ups/add', label: 'Add Top Up', icon: Wallet, permission: 'permAddTopUp' },
-  { kind: 'link', to: '/financial/employee-funds-withdrawal', label: 'Employee Funds Withdrawal', icon: Banknote },
-  { kind: 'link', to: '/employees/terminate', label: 'Terminate Employee', icon: UserX, superuserOnly: true },
-  { kind: 'link', to: '/companies/terminate', label: 'Terminate Company', icon: Building, superuserOnly: true },
-  { kind: 'link', to: '/employees/terminate-bulk', label: 'Terminate Employees in Bulk', icon: Users, superuserOnly: true },
-  { kind: 'link', to: '/top-ups/bulk', label: 'Top Up Employees in Bulk', icon: Upload, permission: 'permBulkTopUp' },
+const ACTIONS_ITEMS: NavItem[] = [
+  link('userManagement', 'User Management', UserCog),
+  link('updateUnitPrice', 'Update Unit Price', TrendingUp),
+  link('runMonthlyCharges', 'Run Monthly Charges', CalendarClock),
+  link('hrBalanceDashboard', 'Run Balance Dashboard', LayoutDashboard),
+  link('addCompany', 'Add New Company', Building2),
+  link('editCompany', 'Edit Existing Company', Pencil),
+  link('addContributions', 'Add New Contributions', PlusCircle),
+  link('editContributions', 'Edit Existing Contributions', Pencil),
+  link('addVestingRules', 'Add New Vesting Rules', Scale),
+  link('editVestingRules', 'Edit Existing Vesting', Scale),
+  link('addEmployee', 'Add New Employee', UserPlus),
+  link('importEmployees', 'Import Employees', Upload),
+  link('editEmployee', 'Edit Existing Employee', Pencil),
+  link('createInvoice', 'Create Invoice', FilePlus2),
+  link('settleInvoice', 'Settle Invoice', BadgeCheck),
+  link('cancelInvoice', 'Cancel Invoice', FileX2),
+  link('addTopUp', 'Add Top Up', Wallet),
+  link('employeeFundsWithdrawal', 'Employee Funds Withdrawal', Banknote),
+  link('terminateEmployee', 'Terminate Employee', UserX),
+  link('terminateCompany', 'Terminate Company', Building),
+  link('terminateEmployeesBulk', 'Terminate Employees in Bulk', Users),
+  link('bulkTopUp', 'Top Up Employees in Bulk', Upload),
 ];
 
 /** Access Reports order — implemented links + remaining placeholders. */
-const REPORTS_ITEMS: ReportNavItem[] = [
+const REPORTS_ITEMS: NavItem[] = [
   { kind: 'placeholder', label: 'View Unit Prices', icon: FileBarChart2 },
   { kind: 'placeholder', label: 'Unsettled Invoices', icon: FileBarChart2 },
-  { kind: 'link', to: '/reporting-operations/company-transactions', label: 'Extract Company Transactions', icon: FileBarChart2, roles: [...REPORT_ROLES.companyTransactions] },
-  { kind: 'link', to: '/reporting-operations/employee-transactions', label: 'Extract Employee Transactions', icon: FileBarChart2, roles: [...REPORT_ROLES.employeeTransactions] },
-  { kind: 'link', to: '/reporting-operations/transactions-between-dates', label: 'Extract Transactions Between Dates', icon: FileBarChart2, roles: [...REPORT_ROLES.transactionsBetweenDates] },
-  { kind: 'link', to: '/reporting-operations/invoice-details', label: 'Extract Invoice Details', icon: FileBarChart2, roles: [...REPORT_ROLES.invoiceDetails] },
-  { kind: 'link', to: '/reporting-operations/movement-summary-between-dates', label: 'Extract Movement Summary Between Dates', icon: FileBarChart2, roles: [...REPORT_ROLES.movementSummaryBetweenDates] },
-  { kind: 'link', to: '/reporting-operations/movement-summary-for-day', label: 'Extract Movement Summary for a day', icon: FileBarChart2, roles: [...REPORT_ROLES.movementSummaryForDay] },
-  { kind: 'link', to: '/reporting-operations/companies-funds', label: 'Extract Companies Funds', icon: FileBarChart2, roles: [...REPORT_ROLES.companiesFunds] },
-  { kind: 'link', to: '/reports/net-company-funds-modified-date', label: 'Net Company Funds - Modified Date', icon: FileBarChart2 },
-  { kind: 'link', to: '/financial/net-company-funds-payment-date', label: 'Net Company Funds - Payment Date', icon: FileBarChart2 },
-  { kind: 'link', to: '/financial/net-employee-funds', label: 'Net Employee Funds', icon: FileBarChart2 },
-  { kind: 'link', to: '/financial/net-funds', label: 'Net Funds', icon: FileBarChart2 },
-  { kind: 'link', to: '/financial/net-units', label: 'Net Units', icon: FileBarChart2 },
-  { kind: 'link', to: '/financial/estimate-employee-termination', label: 'Estimate Employee Termination', icon: FileBarChart2 },
-  { kind: 'link', to: '/reporting-operations/employee-extract-app', label: 'Employee Extract for App', icon: FileBarChart2, roles: [...REPORT_ROLES.employeeExtractApp] },
-  { kind: 'link', to: '/reporting-operations/company-balance', label: 'Generate Company Balance Reports', icon: FileBarChart2, roles: [...REPORT_ROLES.companyBalance] },
-  { kind: 'link', to: '/reporting-operations/employee-balance', label: 'Generate Employee Balance Report', icon: FileBarChart2, roles: [...REPORT_ROLES.employeeBalance] },
-  { kind: 'link', to: '/reporting-operations/employee-records', label: 'Extract Employee', icon: FileBarChart2, roles: [...REPORT_ROLES.employeeRecords] },
-  { kind: 'link', to: '/reporting-operations/aggregated-employee-balance', label: 'Generate Aggregated Employee Balance Report', icon: FileBarChart2, roles: [...REPORT_ROLES.aggregatedEmployeeBalance] },
+  link('companyTransactions', 'Extract Company Transactions', FileBarChart2),
+  link('employeeTransactions', 'Extract Employee Transactions', FileBarChart2),
+  link('transactionsBetweenDates', 'Extract Transactions Between Dates', FileBarChart2),
+  link('invoiceDetails', 'Extract Invoice Details', FileBarChart2),
+  link('movementSummaryBetweenDates', 'Extract Movement Summary Between Dates', FileBarChart2),
+  link('movementSummaryForDay', 'Extract Movement Summary for a day', FileBarChart2),
+  link('companiesFunds', 'Extract Companies Funds', FileBarChart2),
+  link('netCompanyFundsModifiedDate', 'Net Company Funds - Modified Date', FileBarChart2),
+  link('netCompanyFundsPaymentDate', 'Net Company Funds - Payment Date', FileBarChart2),
+  link('netEmployeeFunds', 'Net Employee Funds', FileBarChart2),
+  link('netFunds', 'Net Funds', FileBarChart2),
+  link('netUnits', 'Net Units', FileBarChart2),
+  link('estimateEmployeeTermination', 'Estimate Employee Termination', FileBarChart2),
+  link('employeeExtractApp', 'Employee Extract for App', FileBarChart2),
+  link('companyBalance', 'Generate Company Balance Reports', FileBarChart2),
+  link('employeeBalance', 'Generate Employee Balance Report', FileBarChart2),
+  link('employeeRecords', 'Extract Employee', FileBarChart2),
+  link('aggregatedEmployeeBalance', 'Generate Aggregated Employee Balance Report', FileBarChart2),
 ];
 
 export default function Layout() {
   const { theme, toggle } = useTheme();
   const location = useLocation();
   const navigate = useNavigate();
-  const { user, logout, has } = useAuth();
+  const { user, logout } = useAuth();
   const isLight = theme === 'light';
 
-  const actionItems = ACTIONS_ITEMS.filter((it) => {
-    if (it.kind === 'placeholder') return true;
-    if (it.superuserOnly) return user?.isSuperuser ?? false;
-    if (it.permission) return has(it.permission);
-    if (it.roles && it.roles.length > 0) return canAccessReport(user, it.roles);
-    return true;
-  });
+  const visible = (it: NavItem) => it.kind === 'placeholder' || canAccess(user, it.page);
 
-  const reportItems = REPORTS_ITEMS.filter((it) => {
-    if (it.kind === 'placeholder') return true;
-    if (!it.roles || it.roles.length === 0) return true;
-    return canAccessReport(user, it.roles);
-  });
+  const actionItems = ACTIONS_ITEMS.filter(visible);
+  const reportItems = REPORTS_ITEMS.filter(visible);
 
   const isOnActionRoute = actionItems.some(
     (it) => it.kind === 'link' && (location.pathname === it.to || location.pathname.startsWith(it.to + '/')),

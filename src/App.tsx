@@ -1,4 +1,5 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import type { ReactElement } from 'react';
 import Layout from './components/Layout';
 import ProtectedRoute from './components/ProtectedRoute';
 import AddEmployee from './pages/Employee and Company Mangment/AddEmployee';
@@ -43,23 +44,71 @@ import MovementSummaryBetweenDatesReport from './pages/Reporting Operations/Move
 import InvoiceDetailsReport from './pages/Reporting Operations/InvoiceDetailsReport';
 import MovementSummaryForDayReport from './pages/Reporting Operations/MovementSummaryForDayReport';
 import RunHrBalanceDashboard from './pages/Reporting Operations/RunHrBalanceDashboard';
-import { canAccessReport, REPORT_LANDING_ORDER, REPORT_ROLES } from './lib/reportAccess';
+import { canAccess, LANDING_ORDER, PAGE_ROUTES } from './lib/access';
+import type { PageKey } from './lib/access';
 import { useAuth } from './lib/auth';
 import { ThemeProvider } from './lib/theme';
 import { AuthProvider } from './lib/auth';
 
-function DefaultRoute() {
-  const { user, has } = useAuth();
-  if (!user) return <Navigate to="/login" replace />;
-  if (has('permCreateInvoice')) return <Navigate to="/billing/create-invoice" replace />;
-  if (has('permSettleInvoice')) return <Navigate to="/billing/settle-invoice" replace />;
-  if (has('permCancelInvoice')) return <Navigate to="/billing/cancel-invoice" replace />;
-  if (has('permAddTopUp')) return <Navigate to="/top-ups/add" replace />;
-  if (has('permBulkTopUp')) return <Navigate to="/top-ups/bulk" replace />;
-  if (user.isSuperuser) return <Navigate to="/users" replace />;
+/**
+ * Screen for every guarded page. Paths and role gates both come from
+ * `access.ts`, so the router and the sidebar can never disagree.
+ */
+const PAGE_ELEMENTS: Record<PageKey, ReactElement> = {
+  userManagement: <UserManagement />,
 
-  const firstReport = REPORT_LANDING_ORDER.find((r) => canAccessReport(user, r.roles));
-  if (firstReport) return <Navigate to={firstReport.to} replace />;
+  addCompany: <AddCompany />,
+  editCompany: <EditCompany />,
+  terminateCompany: <TerminateCompany />,
+  addContributions: <AddContributions />,
+  editContributions: <EditContributions />,
+  addEmployee: <AddEmployee />,
+  importEmployees: <ImportEmployees />,
+  editEmployee: <EditEmployee />,
+  terminateEmployee: <TerminateEmployee />,
+  terminateEmployeesBulk: <TerminateEmployeesBulk />,
+
+  createInvoice: <CreateInvoice />,
+  settleInvoice: <SettleInvoice />,
+  cancelInvoice: <CancelInvoice />,
+  addTopUp: <AddTopUp />,
+  bulkTopUp: <BulkTopUp />,
+
+  updateUnitPrice: <UpdateUnitPrice />,
+  runMonthlyCharges: <RunMonthlyCharges />,
+  addVestingRules: <AddVestingRules />,
+  editVestingRules: <EditVestingRules />,
+  employeeFundsWithdrawal: <EmployeeFundsWithdrawal />,
+  estimateEmployeeTermination: <EstimateEmployeeTermination />,
+  netCompanyFundsModifiedDate: <NetCompanyFundsModifiedDate />,
+  netCompanyFundsPaymentDate: <NetCompanyFundsPaymentDate />,
+  netEmployeeFunds: <NetEmployeeFunds />,
+  netFunds: <NetFunds />,
+  netUnits: <NetUnits />,
+
+  hrBalanceDashboard: <RunHrBalanceDashboard />,
+  companyTransactions: <CompanyTransactionsReport />,
+  employeeTransactions: <EmployeeTransactionsReport />,
+  transactionsBetweenDates: <TransactionsBetweenDatesReport />,
+  invoiceDetails: <InvoiceDetailsReport />,
+  movementSummaryBetweenDates: <MovementSummaryBetweenDatesReport />,
+  movementSummaryForDay: <MovementSummaryForDayReport />,
+  companiesFunds: <CompaniesFundsReport />,
+  employeeExtractApp: <EmployeeExtractAppReport />,
+  companyBalance: <CompanyBalanceReport />,
+  employeeBalance: <EmployeeBalanceReport />,
+  employeeRecords: <EmployeeRecordsReport />,
+  aggregatedEmployeeBalance: <AggregatedEmployeeBalanceReport />,
+};
+
+const PAGE_KEYS = Object.keys(PAGE_ELEMENTS) as PageKey[];
+
+function DefaultRoute() {
+  const { user } = useAuth();
+  if (!user) return <Navigate to="/login" replace />;
+
+  const landing = LANDING_ORDER.find((page) => canAccess(user, page));
+  if (landing) return <Navigate to={PAGE_ROUTES[landing]} replace />;
 
   return <Navigate to="/login" replace />;
 }
@@ -88,250 +137,17 @@ function App() {
               }
             >
               <Route index element={<DefaultRoute />} />
-              <Route
-                path="billing/create-invoice"
-                element={
-                  <ProtectedRoute permission="permCreateInvoice">
-                    <CreateInvoice />
-                  </ProtectedRoute>
-                }
-              />
-              <Route
-                path="billing/settle-invoice"
-                element={
-                  <ProtectedRoute permission="permSettleInvoice">
-                    <SettleInvoice />
-                  </ProtectedRoute>
-                }
-              />
-              <Route
-                path="billing/cancel-invoice"
-                element={
-                  <ProtectedRoute permission="permCancelInvoice">
-                    <CancelInvoice />
-                  </ProtectedRoute>
-                }
-              />
-              <Route
-                path="top-ups/add"
-                element={
-                  <ProtectedRoute permission="permAddTopUp">
-                    <AddTopUp />
-                  </ProtectedRoute>
-                }
-              />
-              <Route
-                path="top-ups/bulk"
-                element={
-                  <ProtectedRoute permission="permBulkTopUp">
-                    <BulkTopUp />
-                  </ProtectedRoute>
-                }
-              />
-              <Route
-                path="unit-prices/update"
-                element={
-                  <ProtectedRoute>
-                    <UpdateUnitPrice />
-                  </ProtectedRoute>
-                }
-              />
-              <Route
-                path="reports/net-company-funds-modified-date"
-                element={
-                  <ProtectedRoute>
-                    <NetCompanyFundsModifiedDate />
-                  </ProtectedRoute>
-                }
-              />
-              <Route
-                path="financial/net-company-funds-payment-date"
-                element={
-                  <ProtectedRoute>
-                    <NetCompanyFundsPaymentDate />
-                  </ProtectedRoute>
-                }
-              />
-              <Route
-                path="financial/net-employee-funds"
-                element={
-                  <ProtectedRoute>
-                    <NetEmployeeFunds />
-                  </ProtectedRoute>
-                }
-              />
-              <Route
-                path="financial/net-funds"
-                element={
-                  <ProtectedRoute>
-                    <NetFunds />
-                  </ProtectedRoute>
-                }
-              />
-              <Route
-                path="financial/net-units"
-                element={
-                  <ProtectedRoute>
-                    <NetUnits />
-                  </ProtectedRoute>
-                }
-              />
-              <Route
-                path="financial/run-monthly-charges"
-                element={
-                  <ProtectedRoute>
-                    <RunMonthlyCharges />
-                  </ProtectedRoute>
-                }
-              />
-              <Route
-                path="financial/add-vesting-rules"
-                element={
-                  <ProtectedRoute>
-                    <AddVestingRules />
-                  </ProtectedRoute>
-                }
-              />
-              <Route
-                path="financial/edit-vesting-rules"
-                element={
-                  <ProtectedRoute>
-                    <EditVestingRules />
-                  </ProtectedRoute>
-                }
-              />
-              <Route
-                path="financial/employee-funds-withdrawal"
-                element={
-                  <ProtectedRoute>
-                    <EmployeeFundsWithdrawal />
-                  </ProtectedRoute>
-                }
-              />
-              <Route
-                path="financial/estimate-employee-termination"
-                element={
-                  <ProtectedRoute>
-                    <EstimateEmployeeTermination />
-                  </ProtectedRoute>
-                }
-              />
-              <Route path="users" element={<ProtectedRoute superuserOnly><UserManagement /></ProtectedRoute>} />
-              <Route path="employees/add" element={<ProtectedRoute superuserOnly><AddEmployee /></ProtectedRoute>} />
-              <Route path="employees/import" element={<ProtectedRoute superuserOnly><ImportEmployees /></ProtectedRoute>} />
-              <Route path="employees/edit" element={<ProtectedRoute superuserOnly><EditEmployee /></ProtectedRoute>} />
-              <Route path="employees/terminate" element={<ProtectedRoute superuserOnly><TerminateEmployee /></ProtectedRoute>} />
-              <Route path="employees/terminate-bulk" element={<ProtectedRoute superuserOnly><TerminateEmployeesBulk /></ProtectedRoute>} />
-              <Route path="contributions/add" element={<ProtectedRoute superuserOnly><AddContributions /></ProtectedRoute>} />
-              <Route path="contributions/edit" element={<ProtectedRoute superuserOnly><EditContributions /></ProtectedRoute>} />
-              <Route path="companies/add" element={<ProtectedRoute superuserOnly><AddCompany /></ProtectedRoute>} />
-              <Route path="companies/edit" element={<ProtectedRoute superuserOnly><EditCompany /></ProtectedRoute>} />
-              <Route path="companies/terminate" element={<ProtectedRoute superuserOnly><TerminateCompany /></ProtectedRoute>} />
-              <Route
-                path="reporting-operations/hr-balance-dashboard"
-                element={
-                  <ProtectedRoute roles={[...REPORT_ROLES.hrBalanceDashboard]}>
-                    <RunHrBalanceDashboard />
-                  </ProtectedRoute>
-                }
-              />
-
-              <Route
-                path="reporting-operations/company-balance"
-                element={
-                  <ProtectedRoute roles={[...REPORT_ROLES.companyBalance]}>
-                    <CompanyBalanceReport />
-                  </ProtectedRoute>
-                }
-              />
-              <Route
-                path="reporting-operations/employee-balance"
-                element={
-                  <ProtectedRoute roles={[...REPORT_ROLES.employeeBalance]}>
-                    <EmployeeBalanceReport />
-                  </ProtectedRoute>
-                }
-              />
-              <Route
-                path="reporting-operations/employee-extract-app"
-                element={
-                  <ProtectedRoute roles={[...REPORT_ROLES.employeeExtractApp]}>
-                    <EmployeeExtractAppReport />
-                  </ProtectedRoute>
-                }
-              />
-              <Route
-                path="reporting-operations/companies-funds"
-                element={
-                  <ProtectedRoute roles={[...REPORT_ROLES.companiesFunds]}>
-                    <CompaniesFundsReport />
-                  </ProtectedRoute>
-                }
-              />
-              <Route
-                path="reporting-operations/company-transactions"
-                element={
-                  <ProtectedRoute roles={[...REPORT_ROLES.companyTransactions]}>
-                    <CompanyTransactionsReport />
-                  </ProtectedRoute>
-                }
-              />
-              <Route
-                path="reporting-operations/employee-transactions"
-                element={
-                  <ProtectedRoute roles={[...REPORT_ROLES.employeeTransactions]}>
-                    <EmployeeTransactionsReport />
-                  </ProtectedRoute>
-                }
-              />
-              <Route
-                path="reporting-operations/transactions-between-dates"
-                element={
-                  <ProtectedRoute roles={[...REPORT_ROLES.transactionsBetweenDates]}>
-                    <TransactionsBetweenDatesReport />
-                  </ProtectedRoute>
-                }
-              />
-              <Route
-                path="reporting-operations/employee-records"
-                element={
-                  <ProtectedRoute roles={[...REPORT_ROLES.employeeRecords]}>
-                    <EmployeeRecordsReport />
-                  </ProtectedRoute>
-                }
-              />
-              <Route
-                path="reporting-operations/aggregated-employee-balance"
-                element={
-                  <ProtectedRoute roles={[...REPORT_ROLES.aggregatedEmployeeBalance]}>
-                    <AggregatedEmployeeBalanceReport />
-                  </ProtectedRoute>
-                }
-              />
-              <Route
-                path="reporting-operations/movement-summary-between-dates"
-                element={
-                  <ProtectedRoute roles={[...REPORT_ROLES.movementSummaryBetweenDates]}>
-                    <MovementSummaryBetweenDatesReport />
-                  </ProtectedRoute>
-                }
-              />
-              <Route
-                path="reporting-operations/invoice-details"
-                element={
-                  <ProtectedRoute roles={[...REPORT_ROLES.invoiceDetails]}>
-                    <InvoiceDetailsReport />
-                  </ProtectedRoute>
-                }
-              />
-              <Route
-                path="reporting-operations/movement-summary-for-day"
-                element={
-                  <ProtectedRoute roles={[...REPORT_ROLES.movementSummaryForDay]}>
-                    <MovementSummaryForDayReport />
-                  </ProtectedRoute>
-                }
-              />
+              {PAGE_KEYS.map((page) => (
+                <Route
+                  key={page}
+                  path={PAGE_ROUTES[page].replace(/^\//, '')}
+                  element={
+                    <ProtectedRoute page={page}>
+                      {PAGE_ELEMENTS[page]}
+                    </ProtectedRoute>
+                  }
+                />
+              ))}
             </Route>
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
@@ -342,5 +158,3 @@ function App() {
 }
 
 export default App;
-
-
