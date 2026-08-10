@@ -4,6 +4,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Wallet, CheckCircle2, AlertCircle } from 'lucide-react';
 import PageHeader from '../../components/PageHeader';
 import { dateHelpers, lookupsApi, topUpsApi } from '../../lib/api';
+import { mockExportContents, saveFileWithPicker, suggestedNameFromPath } from '../../lib/saveFile';
 import type { CompanySummary, EmployeeSummary, TopUpResult } from '../../types';
 
 export default function AddTopUp() {
@@ -72,6 +73,14 @@ export default function AddTopUp() {
         topUpER: Number(topUpER) || 0,
         path: path || undefined,
       });
+      const saved = await saveFileWithPicker({
+        suggestedName: suggestedNameFromPath(path, `top-up-${employeeNumber}.txt`),
+        contents: mockExportContents('Add Top Up', { companyNumber, employeeNumber, topUpDate }),
+      });
+      if (saved === 'cancelled') {
+        setResult(res);
+        return;
+      }
       setResult(res);
       setCompanyNumber('');
       setEmployeeNumber('');
@@ -191,7 +200,7 @@ export default function AddTopUp() {
                 className="kaf-input"
                 value={path}
                 onChange={(e) => setPath(e.target.value)}
-                placeholder="Optional report label"
+                placeholder="Optional — choose location in the save dialog"
                 disabled={loading}
               />
             </Field>

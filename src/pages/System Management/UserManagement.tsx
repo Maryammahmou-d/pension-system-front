@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import type { CSSProperties, FormEvent } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
-  UserPlus, Trash2, Pencil, X, Check, ShieldAlert, ShieldCheck, Search, UserCog,
+  UserPlus, UserCheck, UserX, Pencil, X, Check, ShieldAlert, ShieldCheck, Search, UserCog,
   Eye, EyeOff,
 } from 'lucide-react';
 import axios from 'axios';
@@ -31,7 +31,7 @@ export default function UserManagement() {
   const [error, setError] = useState<string | null>(null);
   const [search, setSearch] = useState('');
   const [dialog, setDialog] = useState<DialogMode>({ type: 'closed' });
-  const [confirmDelete, setConfirmDelete] = useState<UserDto | null>(null);
+  const [confirmToggle, setConfirmToggle] = useState<UserDto | null>(null);
 
   const refresh = useCallback(async () => {
     setLoading(true);
@@ -57,10 +57,10 @@ export default function UserManagement() {
       || (u.fullName ?? '').toLowerCase().includes(q));
   }, [search, users]);
 
-  const handleDelete = async (u: UserDto) => {
+  const handleToggleActive = async (u: UserDto) => {
     try {
-      await usersApi.remove(u.id);
-      setConfirmDelete(null);
+      await usersApi.update(u.id, { isActive: !u.isActive });
+      setConfirmToggle(null);
       await refresh();
     } catch (err) {
       setError(extractError(err));
@@ -73,7 +73,7 @@ export default function UserManagement() {
       <PageHeader
         icon={UserCog}
         title="User Management"
-        subtitle="Create, edit, and remove application users."
+        subtitle="Create, edit, and activate or deactivate application users."
         actions={
           <>
             <div style={{ position: 'relative' }}>
@@ -127,7 +127,6 @@ export default function UserManagement() {
                   <Th>Email</Th>
                   <Th>Role</Th>
                   <Th>Status</Th>
-                  <Th>Last login</Th>
                   <Th>Created by</Th>
                   <Th align="right">Actions</Th>
                 </tr>
@@ -170,7 +169,6 @@ export default function UserManagement() {
                         </span>
                       )}
                     </Td>
-                    <Td>{formatDate(u.lastLoginAt)}</Td>
                     <Td>
                       <span style={{ color: 'var(--kaf-muted)' }}>
                         {u.createdBy ?? '—'}
@@ -183,14 +181,19 @@ export default function UserManagement() {
                         <Pencil size={14} />
                       </button>
                       <button
-                        onClick={() => setConfirmDelete(u)}
+                        onClick={() => setConfirmToggle(u)}
                         disabled={u.id === currentUser?.id}
-                        title={u.id === currentUser?.id ? 'You cannot delete yourself' : 'Delete'}
+                        title={
+                          u.id === currentUser?.id
+                            ? 'You cannot deactivate yourself'
+                            : u.isActive ? 'Deactivate' : 'Activate'
+                        }
                         style={{
-                          ...iconBtn, color: '#ef4444',
+                          ...iconBtn,
+                          color: u.isActive ? '#ef4444' : '#10b981',
                           opacity: u.id === currentUser?.id ? 0.4 : 1
                         }}>
-                        <Trash2 size={14} />
+                        {u.isActive ? <UserX size={14} /> : <UserCheck size={14} />}
                       </button>
                     </Td>
                   </tr>
@@ -212,24 +215,39 @@ export default function UserManagement() {
         )}
       </AnimatePresence>
 
-      {/* Delete confirmation */}
+      {/* Activate / deactivate confirmation */}
       <AnimatePresence>
-        {confirmDelete && (
-          <Modal onClose={() => setConfirmDelete(null)} maxWidth={420}>
+        {confirmToggle && (
+          <Modal onClose={() => setConfirmToggle(null)} maxWidth={420}>
             <h3 style={{ margin: 0, fontSize: 16, color: 'var(--kaf-text)' }}>
-              Delete user?
+              {confirmToggle.isActive ? 'Deactivate user?' : 'Activate user?'}
             </h3>
             <p style={{ marginTop: 8, color: 'var(--kaf-muted)', fontSize: 13 }}>
-              This will permanently remove <b>{confirmDelete.username}</b>. Their audit history
-              remains, but the username is freed for reuse.
+              {confirmToggle.isActive ? (
+                <>
+                  <b>{confirmToggle.username}</b> will no longer be able to sign in. The account and
+                  its history are kept and can be reactivated at any time.
+                </>
+              ) : (
+                <>
+                  <b>{confirmToggle.username}</b> will be able to sign in again with their existing
+                  credentials and permissions.
+                </>
+              )}
             </p>
             <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', marginTop: 18 }}>
-              <button onClick={() => setConfirmDelete(null)} style={ghostBtn}>Cancel</button>
+              <button onClick={() => setConfirmToggle(null)} style={ghostBtn}>Cancel</button>
               <button
-                onClick={() => handleDelete(confirmDelete)}
-                style={{ ...primaryBtn, background: '#ef4444', boxShadow: 'none' }}
+                onClick={() => handleToggleActive(confirmToggle)}
+                style={{
+                  ...primaryBtn,
+                  background: confirmToggle.isActive ? '#ef4444' : '#10b981',
+                  boxShadow: 'none',
+                }}
               >
-                <Trash2 size={14} /> Delete
+                {confirmToggle.isActive
+                  ? <><UserX size={14} /> Deactivate</>
+                  : <><UserCheck size={14} /> Activate</>}
               </button>
             </div>
           </Modal>
@@ -732,16 +750,6 @@ function EmptyBlock({ children }: { children: React.ReactNode }) {
       color: 'var(--kaf-muted)', fontSize: 13,
     }}>{children}</div>
   );
-}
-
-function formatDate(iso?: string | null) {
-  if (!iso) return <span style={{ color: 'var(--kaf-muted)' }}>—</span>;
-  try {
-    const d = new Date(iso);
-    return d.toLocaleString();
-  } catch {
-    return iso;
-  }
 }
 
 function extractError(err: unknown): string {

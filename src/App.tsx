@@ -30,6 +30,20 @@ import AddVestingRules from './pages/Financial/AddVestingRules';
 import EditVestingRules from './pages/Financial/EditVestingRules';
 import EmployeeFundsWithdrawal from './pages/Financial/EmployeeFundsWithdrawal';
 import EstimateEmployeeTermination from './pages/Financial/Reports/EstimateEmployeeTermination';
+import CompanyBalanceReport from './pages/Reporting Operations/CompanyBalanceReport';
+import EmployeeBalanceReport from './pages/Reporting Operations/EmployeeBalanceReport';
+import EmployeeExtractAppReport from './pages/Reporting Operations/EmployeeExtractAppReport';
+import CompaniesFundsReport from './pages/Reporting Operations/CompaniesFundsReport';
+import CompanyTransactionsReport from './pages/Reporting Operations/CompanyTransactionsReport';
+import EmployeeTransactionsReport from './pages/Reporting Operations/EmployeeTransactionsReport';
+import TransactionsBetweenDatesReport from './pages/Reporting Operations/TransactionsBetweenDatesReport';
+import EmployeeRecordsReport from './pages/Reporting Operations/EmployeeRecordsReport';
+import AggregatedEmployeeBalanceReport from './pages/Reporting Operations/AggregatedEmployeeBalanceReport';
+import MovementSummaryBetweenDatesReport from './pages/Reporting Operations/MovementSummaryBetweenDatesReport';
+import InvoiceDetailsReport from './pages/Reporting Operations/InvoiceDetailsReport';
+import MovementSummaryForDayReport from './pages/Reporting Operations/MovementSummaryForDayReport';
+import RunHrBalanceDashboard from './pages/Reporting Operations/RunHrBalanceDashboard';
+import { canAccessReport, REPORT_LANDING_ORDER, REPORT_ROLES } from './lib/reportAccess';
 import { useAuth } from './lib/auth';
 import { ThemeProvider } from './lib/theme';
 import { AuthProvider } from './lib/auth';
@@ -43,6 +57,10 @@ function DefaultRoute() {
   if (has('permAddTopUp')) return <Navigate to="/top-ups/add" replace />;
   if (has('permBulkTopUp')) return <Navigate to="/top-ups/bulk" replace />;
   if (user.isSuperuser) return <Navigate to="/users" replace />;
+
+  const firstReport = REPORT_LANDING_ORDER.find((r) => canAccessReport(user, r.roles));
+  if (firstReport) return <Navigate to={firstReport.to} replace />;
+
   return <Navigate to="/login" replace />;
 }
 
@@ -209,6 +227,111 @@ function App() {
               <Route path="companies/add" element={<ProtectedRoute superuserOnly><AddCompany /></ProtectedRoute>} />
               <Route path="companies/edit" element={<ProtectedRoute superuserOnly><EditCompany /></ProtectedRoute>} />
               <Route path="companies/terminate" element={<ProtectedRoute superuserOnly><TerminateCompany /></ProtectedRoute>} />
+              <Route
+                path="reporting-operations/hr-balance-dashboard"
+                element={
+                  <ProtectedRoute roles={[...REPORT_ROLES.hrBalanceDashboard]}>
+                    <RunHrBalanceDashboard />
+                  </ProtectedRoute>
+                }
+              />
+
+              <Route
+                path="reporting-operations/company-balance"
+                element={
+                  <ProtectedRoute roles={[...REPORT_ROLES.companyBalance]}>
+                    <CompanyBalanceReport />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="reporting-operations/employee-balance"
+                element={
+                  <ProtectedRoute roles={[...REPORT_ROLES.employeeBalance]}>
+                    <EmployeeBalanceReport />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="reporting-operations/employee-extract-app"
+                element={
+                  <ProtectedRoute roles={[...REPORT_ROLES.employeeExtractApp]}>
+                    <EmployeeExtractAppReport />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="reporting-operations/companies-funds"
+                element={
+                  <ProtectedRoute roles={[...REPORT_ROLES.companiesFunds]}>
+                    <CompaniesFundsReport />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="reporting-operations/company-transactions"
+                element={
+                  <ProtectedRoute roles={[...REPORT_ROLES.companyTransactions]}>
+                    <CompanyTransactionsReport />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="reporting-operations/employee-transactions"
+                element={
+                  <ProtectedRoute roles={[...REPORT_ROLES.employeeTransactions]}>
+                    <EmployeeTransactionsReport />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="reporting-operations/transactions-between-dates"
+                element={
+                  <ProtectedRoute roles={[...REPORT_ROLES.transactionsBetweenDates]}>
+                    <TransactionsBetweenDatesReport />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="reporting-operations/employee-records"
+                element={
+                  <ProtectedRoute roles={[...REPORT_ROLES.employeeRecords]}>
+                    <EmployeeRecordsReport />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="reporting-operations/aggregated-employee-balance"
+                element={
+                  <ProtectedRoute roles={[...REPORT_ROLES.aggregatedEmployeeBalance]}>
+                    <AggregatedEmployeeBalanceReport />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="reporting-operations/movement-summary-between-dates"
+                element={
+                  <ProtectedRoute roles={[...REPORT_ROLES.movementSummaryBetweenDates]}>
+                    <MovementSummaryBetweenDatesReport />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="reporting-operations/invoice-details"
+                element={
+                  <ProtectedRoute roles={[...REPORT_ROLES.invoiceDetails]}>
+                    <InvoiceDetailsReport />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="reporting-operations/movement-summary-for-day"
+                element={
+                  <ProtectedRoute roles={[...REPORT_ROLES.movementSummaryForDay]}>
+                    <MovementSummaryForDayReport />
+                  </ProtectedRoute>
+                }
+              />
             </Route>
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
@@ -219,3 +342,5 @@ function App() {
 }
 
 export default App;
+
+

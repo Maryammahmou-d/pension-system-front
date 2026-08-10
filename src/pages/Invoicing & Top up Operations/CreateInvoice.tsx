@@ -4,6 +4,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { FilePlus2, CheckCircle2, AlertCircle } from 'lucide-react';
 import PageHeader from '../../components/PageHeader';
 import { dateHelpers, invoicesApi, lookupsApi } from '../../lib/api';
+import { mockExportContents, saveFileWithPicker, suggestedNameFromPath } from '../../lib/saveFile';
 import type { CompanySummary, CreateInvoiceResult } from '../../types';
 
 const MONTHS = [
@@ -50,6 +51,19 @@ export default function CreateInvoice() {
         dateTo: range.dateTo,
         path: path || undefined,
       });
+      const saved = await saveFileWithPicker({
+        suggestedName: suggestedNameFromPath(path, `${res.invoiceNumber}.txt`),
+        contents: mockExportContents('Create Invoice', {
+          invoiceNumber: res.invoiceNumber,
+          companyNumber,
+          year,
+          month,
+        }),
+      });
+      if (saved === 'cancelled') {
+        setResult(res);
+        return;
+      }
       setResult(res);
       setCompanyNumber('');
       setPath('');
@@ -121,7 +135,7 @@ export default function CreateInvoice() {
                 className="kaf-input"
                 value={path}
                 onChange={(e) => setPath(e.target.value)}
-                placeholder="Optional folder label (PDF downloads in browser)"
+                placeholder="Optional — choose location in the save dialog"
                 disabled={loading}
               />
             </Field>

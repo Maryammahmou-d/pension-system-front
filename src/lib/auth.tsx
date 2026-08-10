@@ -59,7 +59,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         new Error(
           err instanceof Error
             ? err.message
-            : 'Invalid credentials. Try admin/admin, ops/ops, crm/crm, or tech/tech.',
+            : 'Invalid credentials.',
         ),
         { isAuthError: true },
       );

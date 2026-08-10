@@ -223,18 +223,6 @@ export default function Login() {
           </button>
         </form>
 
-        <div style={{
-          marginTop: 22, paddingTop: 16,
-          borderTop: '1px solid var(--kaf-border)',
-          textAlign: 'center',
-        }}>
-          <p style={{
-            color: 'var(--kaf-muted-2)', fontSize: 11, lineHeight: 1.6,
-            margin: 0,
-          }}>
-            Demo logins: admin/admin · ops/ops · crm/crm · tech/tech
-          </p>
-        </div>
       </motion.div>
     </div>
   );
