@@ -223,17 +223,14 @@ const _passwords: Record<string, string> = {
 let _nextId = 5;
 const delay = () => new Promise<void>((r) => setTimeout(r, 120));
 
-let _loadedFromBackend = false;
+const authError = () =>
+  Object.assign(new Error('Invalid credentials.'), { isAuthError: true });
 
-/** Pulls the backend user list once so mock-only flows (login) see real users. */
-async function ensureUsersLoaded(): Promise<void> {
-  if (_loadedFromBackend) return;
-  try {
-    await usersApi.list();
-    _loadedFromBackend = true;
-  } catch {
-    // Backend unreachable — fall back to the local seed users.
-  }
+/** Adds or replaces a user in the local store so mock-only flows stay in sync. */
+function upsertLocalUser(u: UserDto): void {
+  const exists = _users.some((x) => x.id === u.id);
+  _users = exists ? _users.map((x) => (x.id === u.id ? u : x)) : [..._users, u];
+  _nextId = Math.max(_nextId, u.id + 1);
 }
 
 function findByLogin(identifier: string): UserDto | undefined {
@@ -284,8 +281,7 @@ export const usersApi = {
     });
 
     const created = mapBackendUser(data);
-    _users = [..._users, created];
-    _nextId = Math.max(_nextId, created.id + 1);
+    upsertLocalUser(created);
     _passwords[created.username.toLowerCase()] = password;
     return { ...created };
   },
@@ -334,15 +330,39 @@ export const usersApi = {
   },
 
   authenticate: async (identifier: string, password: string): Promise<UserDto> => {
-    await ensureUsersLoaded();
-    const u = findByLogin(identifier);
-    if (!u || !u.isActive) {
-      throw Object.assign(new Error('Invalid credentials.'), { isAuthError: true });
+    let row: BackendUserRow | null;
+    try {
+      const res = await http.post<BackendUserRow | null>('/users/login', {
+        userLogin: identifier.trim(),
+        password,
+      });
+      row = res.data;
+    } catch (err) {
+      if (axios.isAxiosError(err)) {
+        const status = err.response?.status ?? 0;
+        if (status === 404) {
+          throw new Error(
+            'Login endpoint not found (POST /users/login). Is the backend running the latest build?',
+          );
+        }
+        if (status === 401 || status === 403) throw authError();
+        // The backend signals a rejected login by throwing, which Spring turns
+        // into a 500 carrying the reason in `message` (e.g. "Invalid Login ID
+        // or Password"). Prefer that text over the generic axios message.
+        const message = (err.response?.data as { message?: string } | undefined)?.message;
+        if (message) throw Object.assign(new Error(message), { isAuthError: true });
+      }
+      throw err;
     }
-    const stored = _passwords[u.username.toLowerCase()];
-    if (stored !== password) {
-      throw Object.assign(new Error('Invalid credentials.'), { isAuthError: true });
-    }
+
+    if (!row?.userLogin) throw authError();
+
+    const u = mapBackendUser(row);
+    if (!u.isActive) throw authError();
+
+    upsertLocalUser(u);
+    if (row.password) _passwords[u.username.toLowerCase()] = row.password;
+
     return { ...u };
   },
 
