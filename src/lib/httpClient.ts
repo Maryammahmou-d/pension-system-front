@@ -14,8 +14,15 @@ export const http = axios.create({
 
 export function extractApiError(err: unknown, fallback: string): string {
   if (axios.isAxiosError(err)) {
-    const data = err.response?.data as { message?: string; error?: string } | undefined;
-    return data?.message ?? data?.error ?? err.message ?? fallback;
+    const data = err.response?.data as
+      | string
+      | { message?: string; error?: string }
+      | undefined;
+    if (typeof data === 'string' && data.trim()) return data;
+    if (data && typeof data === 'object') {
+      return data.message ?? data.error ?? err.message ?? fallback;
+    }
+    return err.message ?? fallback;
   }
   return err instanceof Error ? err.message : fallback;
 }

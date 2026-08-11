@@ -3,7 +3,7 @@ import type { ReactNode } from 'react';
 import { securityLevelForRole, tokenStorage, userStorage, usersApi } from './api';
 import { canAccess } from './access';
 import type { PageKey } from './access';
-import type { ChangePasswordRequest, LoginRequest, PermissionKey, UserDto } from '../types';
+import type { ChangePasswordRequest, LoginRequest, UserDto } from '../types';
 
 interface AuthState {
   user: UserDto | null;
@@ -12,8 +12,6 @@ interface AuthState {
   logout: () => void;
   changePassword: (req: ChangePasswordRequest) => Promise<UserDto>;
   refresh: () => Promise<void>;
-  /** Returns true for superusers OR users with the given permission flag. */
-  has: (perm: PermissionKey) => boolean;
   /** Role-matrix check for a page — same gate `ProtectedRoute` applies. */
   can: (page: PageKey) => boolean;
   /** Access-style security level for settle window rules (1 Admin, 5 Tech). */
@@ -24,8 +22,8 @@ const AuthContext = createContext<AuthState | undefined>(undefined);
 
 function migrateStoredUser(raw: UserDto | null): UserDto | null {
   if (!raw) return null;
-  // Drop stale sessions missing Rubix permission / role fields.
-  if (!('permCreateInvoice' in raw) || !('userSecurity' in raw)) {
+  // Drop stale sessions: pre-role-matrix or pre-must-change payloads.
+  if (!('userSecurity' in raw) || !('mustChangePassword' in raw) || 'permCreateInvoice' in raw) {
     tokenStorage.clear();
     return null;
   }
@@ -73,6 +71,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const stored = userStorage.get();
     if (!stored) throw new Error('Not signed in.');
     const next = await usersApi.setPassword(
+      stored.id,
       stored.username,
       req.currentPassword,
       req.newPassword,
@@ -94,12 +93,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
-  const has = useCallback((perm: PermissionKey) => {
-    if (!user) return false;
-    if (user.isSuperuser) return true;
-    return Boolean(user[perm]);
-  }, [user]);
-
   const can = useCallback((page: PageKey) => canAccess(user, page), [user]);
 
   const securityLevel = useCallback(() => {
@@ -109,8 +102,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [user]);
 
   const value = useMemo<AuthState>(
-    () => ({ user, loading, login, logout, changePassword, refresh, has, can, securityLevel }),
-    [user, loading, login, logout, changePassword, refresh, has, can, securityLevel],
+    () => ({ user, loading, login, logout, changePassword, refresh, can, securityLevel }),
+    [user, loading, login, logout, changePassword, refresh, can, securityLevel],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

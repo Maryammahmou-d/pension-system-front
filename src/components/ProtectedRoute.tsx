@@ -9,7 +9,7 @@ interface Props {
   /**
    * Page being guarded. The current user must be allowed it by the access
    * matrix in `access.ts` (Admins bypass); otherwise they're sent to `/`.
-   * Omit for routes any signed-in user may open (e.g. change-password).
+   * Omit for routes any signed-in user may open.
    */
   page?: PageKey;
 }
@@ -32,10 +32,6 @@ export default function ProtectedRoute({ children, page }: Props) {
 
   if (!user) {
     return <Navigate to="/login" replace state={{ from: location }} />;
-  }
-
-  if (user.mustChangePassword && location.pathname !== '/change-password') {
-    return <Navigate to="/change-password" replace />;
   }
 
   if (page && !canAccess(user, page)) {

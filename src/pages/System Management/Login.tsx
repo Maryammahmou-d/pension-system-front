@@ -5,7 +5,7 @@ import { motion } from 'framer-motion';
 import { Eye, EyeOff, LogIn, Sun, Moon } from 'lucide-react';
 import { useAuth } from '../../lib/auth';
 import { useTheme } from '../../lib/theme';
-import axios from 'axios';
+import { extractApiError } from '../../lib/httpClient';
 
 export default function Login() {
   const { user, login } = useAuth();
@@ -20,20 +20,24 @@ export default function Login() {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Already authenticated → bounce to where they were headed (or dashboard).
+  // Already authenticated → bounce to where they were headed, or force password change.
   useEffect(() => {
     if (user) {
+      const from =
+        (location.state as { from?: { pathname?: string } } | null)?.from?.pathname;
       const target = user.mustChangePassword
         ? '/change-password'
-        : (location.state as { from?: { pathname?: string } } | null)?.from?.pathname ?? '/';
-      navigate(target, { replace: true });
+        : (from ?? '/');
+      if (location.pathname !== target) {
+        navigate(target, { replace: true });
+      }
     }
-  }, [user, navigate, location.state]);
+  }, [user, navigate, location.state, location.pathname]);
 
   const onSubmit = async (e: FormEvent) => {
     e.preventDefault();
     if (!identifier.trim() || !password) {
-      setError('Please enter your username/email and password');
+      setError('Please enter your Login ID and password');
       return;
     }
     setSubmitting(true);
@@ -42,10 +46,7 @@ export default function Login() {
       const u = await login({ identifier: identifier.trim(), password });
       navigate(u.mustChangePassword ? '/change-password' : '/', { replace: true });
     } catch (err) {
-      const msg = axios.isAxiosError(err)
-        ? (err.response?.data?.error ?? err.message)
-        : (err instanceof Error ? err.message : 'Login failed');
-      setError(typeof msg === 'string' ? msg : 'Login failed');
+      setError(extractApiError(err, 'Login failed'));
     } finally {
       setSubmitting(false);
     }
@@ -147,7 +148,7 @@ export default function Login() {
 
         <form onSubmit={onSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
           <div>
-            <label style={labelStyle}>Username or email</label>
+            <label style={labelStyle}>Login ID</label>
             <input
               type="text"
               autoFocus
@@ -156,7 +157,7 @@ export default function Login() {
               onChange={(e) => setIdentifier(e.target.value)}
               disabled={submitting}
               className="kaf-input"
-              placeholder="Enter your username or email"
+              placeholder="Enter your Login ID"
             />
           </div>
 

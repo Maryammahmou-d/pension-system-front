@@ -1,14 +1,5 @@
 // ── Auth & users ────────────────────────────────────────────────
 
-export type PermissionKey =
-  | 'permViewDashboard'
-  | 'permCreateInvoice'
-  | 'permSettleInvoice'
-  | 'permCancelInvoice'
-  | 'permAddTopUp'
-  | 'permBulkTopUp'
-  | 'permManageUsers';
-
 /** Access UserSecurity roles */
 export type UserSecurityRole =
   | 'Admin'
@@ -30,28 +21,18 @@ export const USER_SECURITY_ROLES: UserSecurityRole[] = [
 /** Access default password for newly created users */
 export const DEFAULT_USER_PASSWORD = 'Password';
 
+/**
+ * Mirrors the backend `User` entity. `isSuperuser` is derived
+ * (`userSecurity === 'Admin'`); everything else is a real column.
+ */
 export interface UserDto {
   id: number;
   username: string;
-  email: string;
   fullName?: string | null;
   userSecurity: UserSecurityRole;
   isSuperuser: boolean;
-  isActive: boolean;
+  /** True when the stored password is still the default. */
   mustChangePassword: boolean;
-
-  permViewDashboard: boolean;
-  permCreateInvoice: boolean;
-  permSettleInvoice: boolean;
-  permCancelInvoice: boolean;
-  permAddTopUp: boolean;
-  permBulkTopUp: boolean;
-  permManageUsers: boolean;
-
-  createdAt?: string | null;
-  updatedAt?: string | null;
-  lastLoginAt?: string | null;
-  createdBy?: string | null;
 }
 
 export interface LoginRequest {
@@ -68,33 +49,15 @@ export interface CreateUserRequest {
   username: string;
   fullName: string;
   userSecurity: UserSecurityRole;
-  /** Optional; defaults to `{username}@rubix.local` when omitted. */
-  email?: string;
   /** Optional; defaults to Access default `Password` when omitted. */
   password?: string;
-  isSuperuser?: boolean;
-  permViewDashboard?: boolean;
-  permCreateInvoice?: boolean;
-  permSettleInvoice?: boolean;
-  permCancelInvoice?: boolean;
-  permAddTopUp?: boolean;
-  permBulkTopUp?: boolean;
-  permManageUsers?: boolean;
 }
 
+/** Matches the backend `UpdateUser` DTO — only non-null fields are applied. */
 export interface UpdateUserRequest {
   fullName?: string;
-  email?: string;
+  userLogin?: string;
   userSecurity?: UserSecurityRole;
-  isSuperuser?: boolean;
-  isActive?: boolean;
-  permViewDashboard?: boolean;
-  permCreateInvoice?: boolean;
-  permSettleInvoice?: boolean;
-  permCancelInvoice?: boolean;
-  permAddTopUp?: boolean;
-  permBulkTopUp?: boolean;
-  permManageUsers?: boolean;
 }
 
 export interface PagedRecordsResponse<T> {

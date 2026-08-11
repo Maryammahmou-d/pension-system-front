@@ -2,12 +2,10 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import type { CSSProperties, FormEvent } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
-  UserPlus, UserCheck, UserX, Pencil, X, Check, ShieldAlert, ShieldCheck, Search, UserCog,
-  KeyRound,
+  UserPlus, Pencil, X, Check, ShieldCheck, Search, UserCog, KeyRound,
 } from 'lucide-react';
-import axios from 'axios';
 import { usersApi } from '../../lib/api';
-import { useAuth } from '../../lib/auth';
+import { extractApiError } from '../../lib/httpClient';
 import PageHeader from '../../components/PageHeader';
 import type { CreateUserRequest, UpdateUserRequest, UserDto, UserSecurityRole } from '../../types';
 import { USER_SECURITY_ROLES } from '../../types';
@@ -25,13 +23,11 @@ const ROLE_BADGE: Record<UserSecurityRole, { color: string; bg: string }> = {
 type DialogMode = { type: 'closed' } | { type: 'create' } | { type: 'edit'; user: UserDto };
 
 export default function UserManagement() {
-  const { user: currentUser } = useAuth();
   const [users, setUsers] = useState<UserDto[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [search, setSearch] = useState('');
   const [dialog, setDialog] = useState<DialogMode>({ type: 'closed' });
-  const [confirmToggle, setConfirmToggle] = useState<UserDto | null>(null);
 
   const refresh = useCallback(async () => {
     setLoading(true);
@@ -53,19 +49,8 @@ export default function UserManagement() {
     if (!q) return users;
     return users.filter((u) =>
       u.username.toLowerCase().includes(q)
-      || u.email.toLowerCase().includes(q)
       || (u.fullName ?? '').toLowerCase().includes(q));
   }, [search, users]);
-
-  const handleToggleActive = async (u: UserDto) => {
-    try {
-      await usersApi.update(u.id, { isActive: !u.isActive });
-      setConfirmToggle(null);
-      await refresh();
-    } catch (err) {
-      setError(extractError(err));
-    }
-  };
 
   return (
     <div style={{ padding: '32px 36px', maxWidth: 1280, margin: '0 auto' }}>
@@ -73,7 +58,7 @@ export default function UserManagement() {
       <PageHeader
         icon={UserCog}
         title="User Management"
-        subtitle="Create, edit, and activate or deactivate application users."
+        subtitle="Create and edit application users."
         actions={
           <>
             <div style={{ position: 'relative' }}>
@@ -124,10 +109,7 @@ export default function UserManagement() {
               <thead>
                 <tr>
                   <Th>User</Th>
-                  <Th>Email</Th>
                   <Th>User Security</Th>
-                  <Th>Status</Th>
-                  <Th>Created by</Th>
                   <Th align="right">Actions</Th>
                 </tr>
               </thead>
@@ -145,49 +127,16 @@ export default function UserManagement() {
                         @{u.username}
                       </div>
                     </Td>
-                    <Td>{u.email}</Td>
                     <Td>
                       <Badge {...ROLE_BADGE[u.userSecurity]}>
                         {u.isSuperuser && <ShieldCheck size={11} />} {u.userSecurity}
                       </Badge>
-                    </Td>
-                    <Td>
-                      {u.isActive
-                        ? <Badge color="#10b981" bg="rgba(16,185,129,0.10)">Active</Badge>
-                        : <Badge color="#ef4444" bg="rgba(239,68,68,0.10)">Disabled</Badge>}
-                      {u.mustChangePassword && (
-                        <span style={{ marginLeft: 6 }}>
-                          <Badge color="#d97706" bg="rgba(245,158,11,0.10)">
-                            <ShieldAlert size={11} /> Reset pending
-                          </Badge>
-                        </span>
-                      )}
-                    </Td>
-                    <Td>
-                      <span style={{ color: 'var(--kaf-muted)' }}>
-                        {u.createdBy ?? '—'}
-                      </span>
                     </Td>
                     <Td align="right">
                       <button
                         onClick={() => setDialog({ type: 'edit', user: u })}
                         style={iconBtn} title="Edit">
                         <Pencil size={14} />
-                      </button>
-                      <button
-                        onClick={() => setConfirmToggle(u)}
-                        disabled={u.id === currentUser?.id}
-                        title={
-                          u.id === currentUser?.id
-                            ? 'You cannot deactivate yourself'
-                            : u.isActive ? 'Deactivate' : 'Activate'
-                        }
-                        style={{
-                          ...iconBtn,
-                          color: u.isActive ? '#ef4444' : '#10b981',
-                          opacity: u.id === currentUser?.id ? 0.4 : 1
-                        }}>
-                        {u.isActive ? <UserX size={14} /> : <UserCheck size={14} />}
                       </button>
                     </Td>
                   </tr>
@@ -209,44 +158,6 @@ export default function UserManagement() {
         )}
       </AnimatePresence>
 
-      {/* Activate / deactivate confirmation */}
-      <AnimatePresence>
-        {confirmToggle && (
-          <Modal onClose={() => setConfirmToggle(null)} maxWidth={420}>
-            <h3 style={{ margin: 0, fontSize: 16, color: 'var(--kaf-text)' }}>
-              {confirmToggle.isActive ? 'Deactivate user?' : 'Activate user?'}
-            </h3>
-            <p style={{ marginTop: 8, color: 'var(--kaf-muted)', fontSize: 13 }}>
-              {confirmToggle.isActive ? (
-                <>
-                  <b>{confirmToggle.username}</b> will no longer be able to sign in. The account and
-                  its history are kept and can be reactivated at any time.
-                </>
-              ) : (
-                <>
-                  <b>{confirmToggle.username}</b> will be able to sign in again with their existing
-                  credentials and permissions.
-                </>
-              )}
-            </p>
-            <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', marginTop: 18 }}>
-              <button onClick={() => setConfirmToggle(null)} style={ghostBtn}>Cancel</button>
-              <button
-                onClick={() => handleToggleActive(confirmToggle)}
-                style={{
-                  ...primaryBtn,
-                  background: confirmToggle.isActive ? '#ef4444' : '#10b981',
-                  boxShadow: 'none',
-                }}
-              >
-                {confirmToggle.isActive
-                  ? <><UserX size={14} /> Deactivate</>
-                  : <><UserCheck size={14} /> Activate</>}
-              </button>
-            </div>
-          </Modal>
-        )}
-      </AnimatePresence>
     </div>
   );
 }
@@ -264,12 +175,10 @@ function UserDialog({
   const initial = mode.type === 'edit' ? mode.user : null;
 
   const [username, setUsername] = useState(initial?.username ?? '');
-  const [email, setEmail] = useState(initial?.email ?? '');
   const [fullName, setFullName] = useState(initial?.fullName ?? '');
   const [userSecurity, setUserSecurity] = useState<UserSecurityRole>(
     initial?.userSecurity ?? 'Operations',
   );
-  const [isActive, setIsActive] = useState(initial?.isActive ?? true);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [resetting, setResetting] = useState(false);
@@ -316,10 +225,10 @@ function UserDialog({
 
     setSubmitting(true);
     try {
-      // Superuser and the perm* flags are derived from userSecurity, so the
-      // role is the only access field worth sending.
       const payload: UpdateUserRequest = {
-        email, fullName, isActive, userSecurity,
+        fullName: fullName.trim() || undefined,
+        userLogin: username.trim() || undefined,
+        userSecurity,
       };
       await usersApi.update(initial!.id, payload);
       onSaved();
@@ -423,21 +332,15 @@ function UserDialog({
           </button>
         </div>
 
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-          <Field label="Username">
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+          <Field label="Login ID *">
             <input
               value={username}
-              disabled
-              className="kaf-input"
-            />
-          </Field>
-          <Field label="Email">
-            <input
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
+              onChange={(e) => setUsername(e.target.value)}
               disabled={submitting}
-              className="kaf-input" required
+              className="kaf-input"
+              required
+              autoComplete="off"
             />
           </Field>
           <Field label="Full name">
@@ -460,16 +363,6 @@ function UserDialog({
               ))}
             </select>
           </Field>
-          <Field label="Status">
-            <div style={{ display: 'flex', gap: 14, alignItems: 'center', height: 38 }}>
-              <Toggle
-                checked={isActive}
-                onChange={setIsActive}
-                disabled={submitting}
-                label={isActive ? 'Active' : 'Disabled'}
-              />
-            </div>
-          </Field>
         </div>
 
         <div style={{
@@ -491,7 +384,7 @@ function UserDialog({
                   Reset password
                 </div>
                 <div style={{ color: 'var(--kaf-muted-2)', fontSize: 11.5 }}>
-                  Restores the default password. They must change it on next login.
+                  Restores the default password.
                 </div>
               </div>
               <button
@@ -542,36 +435,6 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
       }}>{label}</label>
       {children}
     </div>
-  );
-}
-
-function Toggle({
-  checked, onChange, disabled, label,
-}: { checked: boolean; onChange: (v: boolean) => void; disabled?: boolean; label: string }) {
-  return (
-    <label style={{
-      display: 'inline-flex', alignItems: 'center', gap: 10,
-      cursor: disabled ? 'not-allowed' : 'pointer', opacity: disabled ? 0.6 : 1,
-    }}>
-      <span style={{
-        position: 'relative', width: 36, height: 20,
-        borderRadius: 12, background: checked ? 'var(--kaf-purple)' : 'var(--kaf-surface-3, #2a2540)',
-        transition: 'background .15s ease', flexShrink: 0,
-      }}>
-        <input
-          type="checkbox" checked={checked} disabled={disabled}
-          onChange={(e) => onChange(e.target.checked)}
-          style={{ opacity: 0, position: 'absolute', inset: 0, cursor: 'inherit' }}
-        />
-        <span style={{
-          position: 'absolute', top: 2, left: checked ? 18 : 2,
-          width: 16, height: 16, borderRadius: '50%', background: '#fff',
-          transition: 'left .15s ease',
-          boxShadow: '0 1px 3px rgba(0,0,0,0.3)',
-        }} />
-      </span>
-      <span style={{ fontSize: 12.5, color: 'var(--kaf-text)' }}>{label}</span>
-    </label>
   );
 }
 
@@ -651,11 +514,7 @@ function EmptyBlock({ children }: { children: React.ReactNode }) {
 }
 
 function extractError(err: unknown): string {
-  if (axios.isAxiosError(err)) {
-    return (err.response?.data as { error?: string } | undefined)?.error
-      ?? err.message;
-  }
-  return err instanceof Error ? err.message : 'Unexpected error';
+  return extractApiError(err, 'Unexpected error');
 }
 
 // ── Inline styles ───────────────────────────────────────────────────────
