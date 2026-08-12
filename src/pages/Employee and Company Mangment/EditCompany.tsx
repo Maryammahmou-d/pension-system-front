@@ -1,8 +1,11 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import type { ChangeEvent, FormEvent } from 'react';
 import { motion } from 'framer-motion';
 import { Pencil } from 'lucide-react';
 import PageHeader from '../../components/PageHeader';
+import { companiesApi } from '../../lib/companiesApi';
+import { extractApiError } from '../../lib/httpClient';
+import type { Company as BackendCompany } from '../../types';
 
 const FREQUENCIES = ['Monthly', 'Quarterly', 'Semi-Annually', 'Annually'];
 
@@ -41,102 +44,39 @@ interface Company extends FormState {
   companyNumber: string;
 }
 
-// TODO: replace with /api/companies data
-const INITIAL_COMPANIES: Company[] = [
-  {
-    companyNumber: '1001',
-    kafCompanyNumber: 'K1001',
-    companyName: 'Acme Corp',
-    issueDate: '2015-03-12',
-    address: '123 Main St, Cairo',
-    contactPerson: 'Ahmed Ali',
-    mobileNumber: '01001234567',
-    email: 'info@acme.com',
-    startingNumberOfEmployees: '50',
-    startingAverageSalary: '15000',
-    startingFundValue: '0',
-    contributionCharges: '10',
-    contributionChargesVEE: '5',
-    imc: '2',
-    withdrawalChargesEE: '100',
-    withdrawalChargesVoluntaryEE: '150',
-    withdrawalChargesER: '200',
-    surrenderCharges: '300',
-    topUpCharges: '1',
-    monthlyAdminCharges: '50',
-    portfolioSwitchingCharges: '75',
-    allocationRedirectionCharges: '60',
-    newOrAcquired: '0',
-    vestingOnHireDate: true,
-    maxWithdrawalPercentage: '100',
-    maxAnnualWithdrawalFrequency: '1000',
-    frequency: 'Monthly',
-    salaryOrContribution: true,
-    showAvailableForWithdrawal: true,
-  },
-  {
-    companyNumber: '1002',
-    kafCompanyNumber: 'K1002',
-    companyName: 'Beta Ltd',
-    issueDate: '2018-07-20',
-    address: '45 Nile Blvd, Giza',
-    contactPerson: 'Sara Hany',
-    mobileNumber: '01009876543',
-    email: 'contact@beta.com',
-    startingNumberOfEmployees: '120',
-    startingAverageSalary: '22000',
-    startingFundValue: '0',
-    contributionCharges: '12',
-    contributionChargesVEE: '6',
-    imc: '2.5',
-    withdrawalChargesEE: '120',
-    withdrawalChargesVoluntaryEE: '180',
-    withdrawalChargesER: '240',
-    surrenderCharges: '360',
-    topUpCharges: '1.5',
-    monthlyAdminCharges: '60',
-    portfolioSwitchingCharges: '90',
-    allocationRedirectionCharges: '70',
-    newOrAcquired: '0',
-    vestingOnHireDate: false,
-    maxWithdrawalPercentage: '100',
-    maxAnnualWithdrawalFrequency: '1000',
-    frequency: 'Quarterly',
-    salaryOrContribution: true,
-    showAvailableForWithdrawal: false,
-  },
-  {
-    companyNumber: '1003',
-    kafCompanyNumber: 'K1003',
-    companyName: 'Gamma Inc',
-    issueDate: '2021-11-05',
-    address: '77 Delta Rd, Alexandria',
-    contactPerson: 'Omar Khaled',
-    mobileNumber: '01005556677',
-    email: 'hello@gamma.com',
-    startingNumberOfEmployees: '30',
-    startingAverageSalary: '18000',
-    startingFundValue: '0',
-    contributionCharges: '8',
-    contributionChargesVEE: '4',
-    imc: '1.5',
-    withdrawalChargesEE: '80',
-    withdrawalChargesVoluntaryEE: '120',
-    withdrawalChargesER: '160',
-    surrenderCharges: '250',
-    topUpCharges: '0.5',
-    monthlyAdminCharges: '40',
-    portfolioSwitchingCharges: '60',
-    allocationRedirectionCharges: '50',
-    newOrAcquired: '0',
-    vestingOnHireDate: true,
-    maxWithdrawalPercentage: '100',
-    maxAnnualWithdrawalFrequency: '1000',
-    frequency: 'Monthly',
-    salaryOrContribution: false,
-    showAvailableForWithdrawal: true,
-  },
-];
+const toStr = (v: number | string | undefined | null): string => (v == null ? '' : String(v));
+
+const mapBackendCompany = (c: BackendCompany): Company => ({
+  companyNumber: c.companyNumber ?? '',
+  kafCompanyNumber: c.kafsCompanyNumber ?? '',
+  companyName: c.companyName ?? '',
+  issueDate: c.issueDate ? c.issueDate.slice(0, 10) : '',
+  address: c.address ?? '',
+  contactPerson: c.contactPerson ?? '',
+  mobileNumber: c.mobileNumber ?? '',
+  email: c.email ?? '',
+  startingNumberOfEmployees: toStr(c.startingNumberOfEmployees),
+  startingAverageSalary: toStr(c.startingAverageSalary),
+  startingFundValue: toStr(c.startingFundValue),
+  contributionCharges: toStr(c.contributionCharges),
+  contributionChargesVEE: toStr(c.contributionChargesVee),
+  imc: toStr(c.imc),
+  withdrawalChargesEE: toStr(c.withdrawalChargesEe),
+  withdrawalChargesVoluntaryEE: toStr(c.withdrawalChargesVee),
+  withdrawalChargesER: toStr(c.withdrawalChargesEr),
+  surrenderCharges: toStr(c.employeeSurrenderCharge),
+  topUpCharges: toStr(c.topUpCharges),
+  monthlyAdminCharges: toStr(c.adminCharges),
+  portfolioSwitchingCharges: toStr(c.portfolioSwitchingCharges),
+  allocationRedirectionCharges: toStr(c.allocationRedirectionCharges),
+  newOrAcquired: toStr(c.newOrAcquired),
+  vestingOnHireDate: c.vestingOnHire ?? false,
+  maxWithdrawalPercentage: toStr(c.maxWithdrawalPercentage),
+  maxAnnualWithdrawalFrequency: toStr(c.maxWithdrawalCount),
+  frequency: c.frequency ?? '',
+  salaryOrContribution: c.salaryOrContribution ?? false,
+  showAvailableForWithdrawal: c.showAvailableWithdrawal ?? false,
+});
 
 const emptyUpdated = (): FormState => ({
   kafCompanyNumber: '',
@@ -208,11 +148,28 @@ function hasChanges(updated: FormState, current: Company): boolean {
 }
 
 export default function EditCompany() {
-  const [companies, setCompanies] = useState<Company[]>(INITIAL_COMPANIES);
+  const [companies, setCompanies] = useState<Company[]>([]);
   const [selectedCompany, setSelectedCompany] = useState('');
   const [updated, setUpdated] = useState<FormState>(emptyUpdated());
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    companiesApi
+      .getLatest()
+      .then((list) => {
+        if (cancelled) return;
+        setCompanies(list.map(mapBackendCompany));
+      })
+      .catch((err) => {
+        if (cancelled) return;
+        setError(extractApiError(err, 'Failed to load companies.'));
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const current = useMemo(
     () => companies.find((c) => c.companyNumber === selectedCompany),

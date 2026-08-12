@@ -10,4 +10,13 @@ export const companiesApi = {
       throw new Error(extractApiError(err, 'Failed to create company.'));
     }
   },
+
+  getLatest: async (): Promise<Company[]> => {
+    try {
+      const { data } = await http.get<Company[]>('/companies/latest');
+      return data;
+    } catch (err) {
+      throw new Error(extractApiError(err, 'Failed to load companies.'));
+    }
+  },
 };
