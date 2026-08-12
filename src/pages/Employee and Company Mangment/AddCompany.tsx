@@ -3,6 +3,9 @@ import type { ChangeEvent, FormEvent } from 'react';
 import { motion } from 'framer-motion';
 import { Building2 } from 'lucide-react';
 import PageHeader from '../../components/PageHeader';
+import { companiesApi } from '../../lib/companiesApi';
+import { extractApiError } from '../../lib/httpClient';
+import type { CreateCompanyRequest } from '../../types';
 
 const FREQUENCIES = ['Monthly', 'Quarterly', 'Semi-Annually', 'Annually'];
 
@@ -82,7 +85,7 @@ export default function AddCompany() {
     setSuccess(null);
   };
 
-  const handleAdd = (e: FormEvent) => {
+  const handleAdd = async (e: FormEvent) => {
     e.preventDefault();
     setError(null);
     setSuccess(null);
@@ -120,7 +123,48 @@ export default function AddCompany() {
       return;
     }
 
-    setSuccess(`Company ${s.companyNumber} added. Backend is not yet connected.`);
+    const toNum = (v: string) => Number(v);
+    const toInt = (v: string) => Math.round(Number(v));
+    const toDate = (v: string) => `${v}T00:00:00Z`;
+
+    const payload: CreateCompanyRequest = {
+      companyNumber: s.companyNumber,
+      kafsCompanyNumber: s.kafCompanyNumber,
+      companyName: s.companyName,
+      issueDate: toDate(s.issueDate),
+      frequency: s.frequency,
+      address: s.address,
+      contactPerson: s.contactPerson,
+      mobileNumber: s.mobileNumber,
+      email: s.email,
+      startingNumberOfEmployees: toInt(s.startingNumberOfEmployees),
+      startingAverageSalary: toNum(s.startingAverageSalary),
+      startingFundValue: toNum(s.startingFundValue),
+      contributionCharges: toNum(s.contributionCharges),
+      contributionChargesVee: toNum(s.contributionChargesVEE),
+      imc: toNum(s.imc),
+      withdrawalChargesEe: toNum(s.withdrawalChargesEE),
+      withdrawalChargesVee: toNum(s.withdrawalChargesVoluntaryEE),
+      withdrawalChargesEr: toNum(s.withdrawalChargesER),
+      employeeSurrenderCharge: toNum(s.surrenderCharges),
+      topUpCharges: toInt(s.topUpCharges),
+      adminCharges: toInt(s.monthlyAdminCharges),
+      portfolioSwitchingCharges: toInt(s.portfolioSwitchingCharges),
+      allocationRedirectionCharges: toInt(s.allocationRedirectionCharges),
+      newOrAcquired: toInt(s.newOrAcquired),
+      vestingOnHire: s.vestingOnHireDate,
+      maxWithdrawalPercentage: toNum(s.maxWithdrawalPercentage),
+      maxWithdrawalCount: toNum(s.maxAnnualWithdrawalFrequency),
+      salaryOrContribution: s.salaryOrContribution,
+      showAvailableWithdrawal: s.showAvailableForWithdrawal,
+    };
+
+    try {
+      const company = await companiesApi.create(payload);
+      setSuccess(`Company ${company.companyNumber} - ${company.companyName} created.`);
+    } catch (err) {
+      setError(extractApiError(err, 'Failed to create company.'));
+    }
   };
 
   const handleClear = () => {

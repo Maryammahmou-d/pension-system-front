@@ -79,6 +79,76 @@ export interface CompanySummary {
   active: boolean;
 }
 
+export interface CreateCompanyRequest {
+  companyNumber: string;
+  kafsCompanyNumber: string;
+  companyName: string;
+  issueDate: string;
+  frequency: string;
+  address: string;
+  contactPerson: string;
+  mobileNumber: string;
+  email: string;
+  startingNumberOfEmployees: number;
+  startingAverageSalary: number;
+  startingFundValue: number;
+  contributionCharges: number;
+  contributionChargesVee: number;
+  imc: number;
+  withdrawalChargesEe: number;
+  withdrawalChargesVee: number;
+  withdrawalChargesEr: number;
+  employeeSurrenderCharge: number;
+  topUpCharges: number;
+  adminCharges: number;
+  portfolioSwitchingCharges: number;
+  allocationRedirectionCharges: number;
+  terminationDate?: string | null;
+  newOrAcquired: number;
+  vestingOnHire: boolean;
+  maxWithdrawalPercentage: number;
+  maxWithdrawalCount: number;
+  salaryOrContribution: boolean;
+  showAvailableWithdrawal: boolean;
+}
+
+export interface Company {
+  id?: number;
+  serial?: number;
+  modifiedDate?: string | null;
+  companyNumber: string;
+  kafsCompanyNumber: string;
+  companyName: string;
+  issueDate: string;
+  frequency: string;
+  address: string;
+  contactPerson: string;
+  mobileNumber: string;
+  email: string;
+  startingNumberOfEmployees: number;
+  startingAverageSalary: number;
+  startingFundValue: number;
+  contributionCharges: number;
+  contributionChargesVee: number;
+  imc: number;
+  withdrawalChargesEe: number;
+  withdrawalChargesVee: number;
+  withdrawalChargesEr: number;
+  employeeSurrenderCharge: number;
+  topUpCharges: number;
+  adminCharges: number;
+  portfolioSwitchingCharges: number;
+  allocationRedirectionCharges: number;
+  terminationDate?: string | null;
+  newOrAcquired: number;
+  vestingOnHire: boolean;
+  maxWithdrawalPercentage: number;
+  maxWithdrawalCount: number;
+  salaryOrContribution: boolean;
+  showAvailableWithdrawal: boolean;
+  userName?: string | null;
+}
+
 export interface EmployeeSummary {
   employeeNumber: string;
   fullName: string;
