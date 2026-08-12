@@ -19,4 +19,13 @@ export const companiesApi = {
       throw new Error(extractApiError(err, 'Failed to load companies.'));
     }
   },
+
+  update: async (id: number, req: Partial<CreateCompanyRequest>): Promise<Company> => {
+    try {
+      const { data } = await http.put<Company>(`/companies/${id}`, req);
+      return data;
+    } catch (err) {
+      throw new Error(extractApiError(err, 'Failed to update company.'));
+    }
+  },
 };

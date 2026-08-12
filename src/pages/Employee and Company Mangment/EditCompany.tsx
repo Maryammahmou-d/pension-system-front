@@ -5,7 +5,7 @@ import { Pencil } from 'lucide-react';
 import PageHeader from '../../components/PageHeader';
 import { companiesApi } from '../../lib/companiesApi';
 import { extractApiError } from '../../lib/httpClient';
-import type { Company as BackendCompany } from '../../types';
+import type { Company as BackendCompany, CreateCompanyRequest } from '../../types';
 
 const FREQUENCIES = ['Monthly', 'Quarterly', 'Semi-Annually', 'Annually'];
 
@@ -41,6 +41,7 @@ interface FormState {
 }
 
 interface Company extends FormState {
+  id: number;
   companyNumber: string;
   serial: string;
 }
@@ -62,6 +63,7 @@ function formatDisplayDate(iso: string): string {
 }
 
 const mapBackendCompany = (c: BackendCompany): Company => ({
+  id: c.id ?? 0,
   serial: toStr(c.serial),
   companyNumber: c.companyNumber ?? '',
   kafCompanyNumber: c.kafsCompanyNumber ?? '',
@@ -206,7 +208,7 @@ export default function EditCompany() {
     setSuccess(null);
   };
 
-  const handleEdit = (e: FormEvent) => {
+  const handleEdit = async (e: FormEvent) => {
     e.preventDefault();
     setError(null);
     setSuccess(null);
@@ -219,26 +221,68 @@ export default function EditCompany() {
       setError('Selected company not found.');
       return;
     }
+    if (current.id <= 0) {
+      setError('Company ID is missing.');
+      return;
+    }
     if (!hasChanges(updated, current)) {
       setSuccess('No changes were provided; current company data will be kept.');
       return;
     }
 
-    setCompanies((prev) =>
-      prev.map((c) => {
-        if (c.companyNumber !== selectedCompany) return c;
-        const next: Company = { ...c };
-        (Object.keys(updated) as (keyof FormState)[]).forEach((k) => {
-          if (typeof updated[k] === 'boolean') {
-            (next as unknown as Record<keyof FormState, string | boolean>)[k] = updated[k];
-          } else if ((updated[k] as string).trim() !== '') {
-            (next as unknown as Record<keyof FormState, string | boolean>)[k] = updated[k];
-          }
-        });
-        return next;
-      })
-    );
-    setSuccess(`Company ${selectedCompany} update simulated.`);
+    const toS = (v: string) => (v.trim() ? v.trim() : undefined);
+    const toN = (v: string) => (v.trim() ? Number(v) : undefined);
+    const toI = (v: string) => (v.trim() ? Math.round(Number(v)) : undefined);
+    const toD = (v: string) => (v.trim() ? `${v}T00:00:00+02:00` : undefined);
+
+    const payload: Partial<CreateCompanyRequest> = {
+      companyName: toS(updated.companyName),
+      kafsCompanyNumber: toS(updated.kafCompanyNumber),
+      address: toS(updated.address),
+      contactPerson: toS(updated.contactPerson),
+      mobileNumber: toS(updated.mobileNumber),
+      email: toS(updated.email),
+      frequency: toS(updated.frequency),
+      issueDate: toD(updated.issueDate),
+      startingNumberOfEmployees: toI(updated.startingNumberOfEmployees),
+      startingAverageSalary: toN(updated.startingAverageSalary),
+      startingFundValue: toN(updated.startingFundValue),
+      contributionCharges: toN(updated.contributionCharges),
+      contributionChargesVee: toN(updated.contributionChargesVEE),
+      imc: toN(updated.imc),
+      withdrawalChargesEe: toN(updated.withdrawalChargesEE),
+      withdrawalChargesVee: toN(updated.withdrawalChargesVoluntaryEE),
+      withdrawalChargesEr: toN(updated.withdrawalChargesER),
+      employeeSurrenderCharge: toN(updated.surrenderCharges),
+      topUpCharges: toI(updated.topUpCharges),
+      adminCharges: toI(updated.monthlyAdminCharges),
+      portfolioSwitchingCharges: toI(updated.portfolioSwitchingCharges),
+      allocationRedirectionCharges: toI(updated.allocationRedirectionCharges),
+      newOrAcquired: toI(updated.newOrAcquired),
+      maxWithdrawalPercentage: toN(updated.maxWithdrawalPercentage),
+      maxWithdrawalCount: toN(updated.maxAnnualWithdrawalFrequency),
+      vestingOnHire:
+        updated.vestingOnHireDate !== current.vestingOnHireDate
+          ? updated.vestingOnHireDate
+          : undefined,
+      salaryOrContribution:
+        updated.salaryOrContribution !== current.salaryOrContribution
+          ? updated.salaryOrContribution
+          : undefined,
+      showAvailableWithdrawal:
+        updated.showAvailableForWithdrawal !== current.showAvailableForWithdrawal
+          ? updated.showAvailableForWithdrawal
+          : undefined,
+    };
+
+    try {
+      const result = await companiesApi.update(current.id, payload);
+      const latest = await companiesApi.getLatest();
+      setCompanies(latest.map(mapBackendCompany));
+      setSuccess(`Company ${result.companyNumber} updated.`);
+    } catch (err) {
+      setError(extractApiError(err, 'Failed to update company.'));
+    }
   };
 
   const handleClear = () => {
