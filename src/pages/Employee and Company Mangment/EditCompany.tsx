@@ -42,11 +42,20 @@ interface FormState {
 
 interface Company extends FormState {
   companyNumber: string;
+  serial: string;
 }
 
 const toStr = (v: number | string | undefined | null): string => (v == null ? '' : String(v));
 
+function formatDisplayDate(iso: string): string {
+  if (!iso) return '';
+  const [y, m, d] = iso.split('-');
+  if (!y || !m || !d) return iso;
+  return `${Number(m)}/${Number(d)}/${y}`;
+}
+
 const mapBackendCompany = (c: BackendCompany): Company => ({
+  serial: toStr(c.serial),
   companyNumber: c.companyNumber ?? '',
   kafCompanyNumber: c.kafsCompanyNumber ?? '',
   companyName: c.companyName ?? '',
@@ -294,7 +303,7 @@ export default function EditCompany() {
                     </option>
                     {companies.map((c) => (
                       <option key={c.companyNumber} value={c.companyNumber}>
-                        {c.companyNumber}
+                        {c.companyNumber} — {c.companyName} — {formatDisplayDate(c.issueDate)} — {c.serial}
                       </option>
                     ))}
                   </select>
