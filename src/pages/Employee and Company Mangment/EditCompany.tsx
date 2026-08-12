@@ -47,11 +47,18 @@ interface Company extends FormState {
 
 const toStr = (v: number | string | undefined | null): string => (v == null ? '' : String(v));
 
+function toCairoDate(iso: string): string {
+  if (!iso) return '';
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return iso.slice(0, 10);
+  return d.toLocaleDateString('en-CA', { timeZone: 'Africa/Cairo' });
+}
+
 function formatDisplayDate(iso: string): string {
   if (!iso) return '';
-  const [y, m, d] = iso.split('-');
-  if (!y || !m || !d) return iso;
-  return `${Number(m)}/${Number(d)}/${y}`;
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return iso;
+  return d.toLocaleDateString('en-US', { timeZone: 'Africa/Cairo' });
 }
 
 const mapBackendCompany = (c: BackendCompany): Company => ({
@@ -59,7 +66,7 @@ const mapBackendCompany = (c: BackendCompany): Company => ({
   companyNumber: c.companyNumber ?? '',
   kafCompanyNumber: c.kafsCompanyNumber ?? '',
   companyName: c.companyName ?? '',
-  issueDate: c.issueDate ? c.issueDate.slice(0, 10) : '',
+  issueDate: toCairoDate(c.issueDate),
   address: c.address ?? '',
   contactPerson: c.contactPerson ?? '',
   mobileNumber: c.mobileNumber ?? '',
