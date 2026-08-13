@@ -1,8 +1,11 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import type { ChangeEvent, FormEvent } from 'react';
 import { motion } from 'framer-motion';
 import { Pencil } from 'lucide-react';
 import PageHeader from '../../components/PageHeader';
+import { companiesApi } from '../../lib/companiesApi';
+import { extractApiError } from '../../lib/httpClient';
+import type { Company as BackendCompany, CreateCompanyRequest } from '../../types';
 
 const FREQUENCIES = ['Monthly', 'Quarterly', 'Semi-Annually', 'Annually'];
 
@@ -38,105 +41,60 @@ interface FormState {
 }
 
 interface Company extends FormState {
+  id: number;
   companyNumber: string;
+  serial: string;
 }
 
-// TODO: replace with /api/companies data
-const INITIAL_COMPANIES: Company[] = [
-  {
-    companyNumber: '1001',
-    kafCompanyNumber: 'K1001',
-    companyName: 'Acme Corp',
-    issueDate: '2015-03-12',
-    address: '123 Main St, Cairo',
-    contactPerson: 'Ahmed Ali',
-    mobileNumber: '01001234567',
-    email: 'info@acme.com',
-    startingNumberOfEmployees: '50',
-    startingAverageSalary: '15000',
-    startingFundValue: '0',
-    contributionCharges: '10',
-    contributionChargesVEE: '5',
-    imc: '2',
-    withdrawalChargesEE: '100',
-    withdrawalChargesVoluntaryEE: '150',
-    withdrawalChargesER: '200',
-    surrenderCharges: '300',
-    topUpCharges: '1',
-    monthlyAdminCharges: '50',
-    portfolioSwitchingCharges: '75',
-    allocationRedirectionCharges: '60',
-    newOrAcquired: '0',
-    vestingOnHireDate: true,
-    maxWithdrawalPercentage: '100',
-    maxAnnualWithdrawalFrequency: '1000',
-    frequency: 'Monthly',
-    salaryOrContribution: true,
-    showAvailableForWithdrawal: true,
-  },
-  {
-    companyNumber: '1002',
-    kafCompanyNumber: 'K1002',
-    companyName: 'Beta Ltd',
-    issueDate: '2018-07-20',
-    address: '45 Nile Blvd, Giza',
-    contactPerson: 'Sara Hany',
-    mobileNumber: '01009876543',
-    email: 'contact@beta.com',
-    startingNumberOfEmployees: '120',
-    startingAverageSalary: '22000',
-    startingFundValue: '0',
-    contributionCharges: '12',
-    contributionChargesVEE: '6',
-    imc: '2.5',
-    withdrawalChargesEE: '120',
-    withdrawalChargesVoluntaryEE: '180',
-    withdrawalChargesER: '240',
-    surrenderCharges: '360',
-    topUpCharges: '1.5',
-    monthlyAdminCharges: '60',
-    portfolioSwitchingCharges: '90',
-    allocationRedirectionCharges: '70',
-    newOrAcquired: '0',
-    vestingOnHireDate: false,
-    maxWithdrawalPercentage: '100',
-    maxAnnualWithdrawalFrequency: '1000',
-    frequency: 'Quarterly',
-    salaryOrContribution: true,
-    showAvailableForWithdrawal: false,
-  },
-  {
-    companyNumber: '1003',
-    kafCompanyNumber: 'K1003',
-    companyName: 'Gamma Inc',
-    issueDate: '2021-11-05',
-    address: '77 Delta Rd, Alexandria',
-    contactPerson: 'Omar Khaled',
-    mobileNumber: '01005556677',
-    email: 'hello@gamma.com',
-    startingNumberOfEmployees: '30',
-    startingAverageSalary: '18000',
-    startingFundValue: '0',
-    contributionCharges: '8',
-    contributionChargesVEE: '4',
-    imc: '1.5',
-    withdrawalChargesEE: '80',
-    withdrawalChargesVoluntaryEE: '120',
-    withdrawalChargesER: '160',
-    surrenderCharges: '250',
-    topUpCharges: '0.5',
-    monthlyAdminCharges: '40',
-    portfolioSwitchingCharges: '60',
-    allocationRedirectionCharges: '50',
-    newOrAcquired: '0',
-    vestingOnHireDate: true,
-    maxWithdrawalPercentage: '100',
-    maxAnnualWithdrawalFrequency: '1000',
-    frequency: 'Monthly',
-    salaryOrContribution: false,
-    showAvailableForWithdrawal: true,
-  },
-];
+const toStr = (v: number | string | undefined | null): string => (v == null ? '' : String(v));
+
+function toCairoDate(iso: string): string {
+  if (!iso) return '';
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return iso.slice(0, 10);
+  return d.toLocaleDateString('en-CA', { timeZone: 'Africa/Cairo' });
+}
+
+function formatDisplayDate(iso: string): string {
+  if (!iso) return '';
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return iso;
+  return d.toLocaleDateString('en-US', { timeZone: 'Africa/Cairo' });
+}
+
+const mapBackendCompany = (c: BackendCompany): Company => ({
+  id: c.id ?? 0,
+  serial: toStr(c.serial),
+  companyNumber: c.companyNumber ?? '',
+  kafCompanyNumber: c.kafsCompanyNumber ?? '',
+  companyName: c.companyName ?? '',
+  issueDate: toCairoDate(c.issueDate),
+  address: c.address ?? '',
+  contactPerson: c.contactPerson ?? '',
+  mobileNumber: c.mobileNumber ?? '',
+  email: c.email ?? '',
+  startingNumberOfEmployees: toStr(c.startingNumberOfEmployees),
+  startingAverageSalary: toStr(c.startingAverageSalary),
+  startingFundValue: toStr(c.startingFundValue),
+  contributionCharges: toStr(c.contributionCharges),
+  contributionChargesVEE: toStr(c.contributionChargesVee),
+  imc: toStr(c.imc),
+  withdrawalChargesEE: toStr(c.withdrawalChargesEe),
+  withdrawalChargesVoluntaryEE: toStr(c.withdrawalChargesVee),
+  withdrawalChargesER: toStr(c.withdrawalChargesEr),
+  surrenderCharges: toStr(c.employeeSurrenderCharge),
+  topUpCharges: toStr(c.topUpCharges),
+  monthlyAdminCharges: toStr(c.adminCharges),
+  portfolioSwitchingCharges: toStr(c.portfolioSwitchingCharges),
+  allocationRedirectionCharges: toStr(c.allocationRedirectionCharges),
+  newOrAcquired: toStr(c.newOrAcquired),
+  vestingOnHireDate: c.vestingOnHire ?? false,
+  maxWithdrawalPercentage: toStr(c.maxWithdrawalPercentage),
+  maxAnnualWithdrawalFrequency: toStr(c.maxWithdrawalCount),
+  frequency: c.frequency ?? '',
+  salaryOrContribution: c.salaryOrContribution ?? false,
+  showAvailableForWithdrawal: c.showAvailableWithdrawal ?? false,
+});
 
 const emptyUpdated = (): FormState => ({
   kafCompanyNumber: '',
@@ -208,11 +166,28 @@ function hasChanges(updated: FormState, current: Company): boolean {
 }
 
 export default function EditCompany() {
-  const [companies, setCompanies] = useState<Company[]>(INITIAL_COMPANIES);
+  const [companies, setCompanies] = useState<Company[]>([]);
   const [selectedCompany, setSelectedCompany] = useState('');
   const [updated, setUpdated] = useState<FormState>(emptyUpdated());
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    companiesApi
+      .getLatest()
+      .then((list) => {
+        if (cancelled) return;
+        setCompanies(list.map(mapBackendCompany));
+      })
+      .catch((err) => {
+        if (cancelled) return;
+        setError(extractApiError(err, 'Failed to load companies.'));
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const current = useMemo(
     () => companies.find((c) => c.companyNumber === selectedCompany),
@@ -233,7 +208,7 @@ export default function EditCompany() {
     setSuccess(null);
   };
 
-  const handleEdit = (e: FormEvent) => {
+  const handleEdit = async (e: FormEvent) => {
     e.preventDefault();
     setError(null);
     setSuccess(null);
@@ -246,26 +221,68 @@ export default function EditCompany() {
       setError('Selected company not found.');
       return;
     }
+    if (current.id <= 0) {
+      setError('Company ID is missing.');
+      return;
+    }
     if (!hasChanges(updated, current)) {
       setSuccess('No changes were provided; current company data will be kept.');
       return;
     }
 
-    setCompanies((prev) =>
-      prev.map((c) => {
-        if (c.companyNumber !== selectedCompany) return c;
-        const next: Company = { ...c };
-        (Object.keys(updated) as (keyof FormState)[]).forEach((k) => {
-          if (typeof updated[k] === 'boolean') {
-            (next as unknown as Record<keyof FormState, string | boolean>)[k] = updated[k];
-          } else if ((updated[k] as string).trim() !== '') {
-            (next as unknown as Record<keyof FormState, string | boolean>)[k] = updated[k];
-          }
-        });
-        return next;
-      })
-    );
-    setSuccess(`Company ${selectedCompany} update simulated.`);
+    const toS = (v: string) => (v.trim() ? v.trim() : undefined);
+    const toN = (v: string) => (v.trim() ? Number(v) : undefined);
+    const toI = (v: string) => (v.trim() ? Math.round(Number(v)) : undefined);
+    const toD = (v: string) => (v.trim() ? `${v}T00:00:00+02:00` : undefined);
+
+    const payload: Partial<CreateCompanyRequest> = {
+      companyName: toS(updated.companyName),
+      kafsCompanyNumber: toS(updated.kafCompanyNumber),
+      address: toS(updated.address),
+      contactPerson: toS(updated.contactPerson),
+      mobileNumber: toS(updated.mobileNumber),
+      email: toS(updated.email),
+      frequency: toS(updated.frequency),
+      issueDate: toD(updated.issueDate),
+      startingNumberOfEmployees: toI(updated.startingNumberOfEmployees),
+      startingAverageSalary: toN(updated.startingAverageSalary),
+      startingFundValue: toN(updated.startingFundValue),
+      contributionCharges: toN(updated.contributionCharges),
+      contributionChargesVee: toN(updated.contributionChargesVEE),
+      imc: toN(updated.imc),
+      withdrawalChargesEe: toN(updated.withdrawalChargesEE),
+      withdrawalChargesVee: toN(updated.withdrawalChargesVoluntaryEE),
+      withdrawalChargesEr: toN(updated.withdrawalChargesER),
+      employeeSurrenderCharge: toN(updated.surrenderCharges),
+      topUpCharges: toI(updated.topUpCharges),
+      adminCharges: toI(updated.monthlyAdminCharges),
+      portfolioSwitchingCharges: toI(updated.portfolioSwitchingCharges),
+      allocationRedirectionCharges: toI(updated.allocationRedirectionCharges),
+      newOrAcquired: toI(updated.newOrAcquired),
+      maxWithdrawalPercentage: toN(updated.maxWithdrawalPercentage),
+      maxWithdrawalCount: toN(updated.maxAnnualWithdrawalFrequency),
+      vestingOnHire:
+        updated.vestingOnHireDate !== current.vestingOnHireDate
+          ? updated.vestingOnHireDate
+          : undefined,
+      salaryOrContribution:
+        updated.salaryOrContribution !== current.salaryOrContribution
+          ? updated.salaryOrContribution
+          : undefined,
+      showAvailableWithdrawal:
+        updated.showAvailableForWithdrawal !== current.showAvailableForWithdrawal
+          ? updated.showAvailableForWithdrawal
+          : undefined,
+    };
+
+    try {
+      const result = await companiesApi.update(current.id, payload);
+      const latest = await companiesApi.getLatest();
+      setCompanies(latest.map(mapBackendCompany));
+      setSuccess(`Company ${result.companyNumber} updated.`);
+    } catch (err) {
+      setError(extractApiError(err, 'Failed to update company.'));
+    }
   };
 
   const handleClear = () => {
@@ -337,7 +354,7 @@ export default function EditCompany() {
                     </option>
                     {companies.map((c) => (
                       <option key={c.companyNumber} value={c.companyNumber}>
-                        {c.companyNumber}
+                        {c.companyNumber} — {c.companyName} — {formatDisplayDate(c.issueDate)} — {c.serial}
                       </option>
                     ))}
                   </select>

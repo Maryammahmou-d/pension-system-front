@@ -1,30 +1,12 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import type { ChangeEvent, FormEvent } from 'react';
 import { motion } from 'framer-motion';
 import { Pencil } from 'lucide-react';
 import PageHeader from '../../components/PageHeader';
-
-const COMPANIES = [
-  { number: '1001', issueDate: '2015-03-12' },
-  { number: '1002', issueDate: '2018-07-20' },
-  { number: '1003', issueDate: '2021-11-05' },
-];
-
-
-interface Contribution {
-  companyNumber: string;
-  category: string;
-  ee: string;
-  er: string;
-}
-
-// TODO: replace with /api/contributions data
-const EXISTING_CONTRIBUTIONS: Contribution[] = [
-  { companyNumber: '1001', category: 'Category 1', ee: '10.00', er: '15.00' },
-  { companyNumber: '1001', category: 'Category 2', ee: '12.00', er: '18.00' },
-  { companyNumber: '1002', category: 'Category 1', ee: '8.00', er: '12.00' },
-  { companyNumber: '1003', category: 'Category 1', ee: '9.00', er: '14.00' },
-];
+import { companiesApi } from '../../lib/companiesApi';
+import { contributionsApi } from '../../lib/contributionsApi';
+import { extractApiError } from '../../lib/httpClient';
+import type { Company, Contribution, CreateContributionRequest } from '../../types';
 
 interface FormState {
   companyNumber: string;
@@ -41,16 +23,63 @@ const emptyState = (): FormState => ({
 });
 
 export default function EditContributions() {
-  const [rows, setRows] = useState<Contribution[]>(EXISTING_CONTRIBUTIONS);
+  const [companies, setCompanies] = useState<Company[]>([]);
+  const [companiesLoading, setCompaniesLoading] = useState(false);
+  const [rows, setRows] = useState<Contribution[]>([]);
+  const [rowsLoading, setRowsLoading] = useState(false);
   const [s, setS] = useState<FormState>(emptyState());
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
 
-  const categoriesForCompany = useMemo(
-    () => [...new Set(rows.filter((r) => r.companyNumber === s.companyNumber).map((r) => r.category))],
-    [rows, s.companyNumber]
-  );
-  const filteredRows = useMemo(() => rows.filter((r) => r.companyNumber === s.companyNumber), [rows, s.companyNumber]);
+  useEffect(() => {
+    let cancelled = false;
+    setCompaniesLoading(true);
+    companiesApi
+      .getLatest()
+      .then((list) => {
+        if (cancelled) return;
+        setCompanies(list);
+      })
+      .catch((err) => {
+        if (cancelled) return;
+        setError(extractApiError(err, 'Failed to load companies.'));
+      })
+      .finally(() => {
+        if (!cancelled) setCompaniesLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!s.companyNumber || !s.category) return;
+    const row = rows.find((r) => r.companyNumber === s.companyNumber && r.category === s.category);
+    if (!row) return;
+    setS((prev) => ({ ...prev, ee: String(row.ee), er: String(row.er) }));
+  }, [s.category, s.companyNumber, rows]);
+
+  const loadContributions = async (companyNumber: string) => {
+    if (!companyNumber) return;
+    setRows([]);
+    setRowsLoading(true);
+    setError(null);
+    setSuccess(null);
+    try {
+      const list = await contributionsApi.getByCompanyNumber(companyNumber);
+      setRows(list);
+      if (list.length > 0) {
+        setS((prev) => ({ ...prev, category: list[0].category }));
+      } else {
+        setS((prev) => ({ ...prev, category: '', ee: '0', er: '0' }));
+      }
+    } catch (err) {
+      setError(extractApiError(err, 'Failed to load contributions.'));
+    } finally {
+      setRowsLoading(false);
+    }
+  };
 
   const onChange = (key: keyof FormState) => (e: ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     setS((prev) => ({ ...prev, [key]: e.target.value } as FormState));
@@ -59,31 +88,35 @@ export default function EditContributions() {
   };
 
   const handleCompany = (e: ChangeEvent<HTMLSelectElement>) => {
-    const company = e.target.value;
-    const first = rows.find((r) => r.companyNumber === company)?.category ?? '';
-    setS((prev) => ({ ...prev, companyNumber: company, category: first } as FormState));
+    const companyNumber = e.target.value;
+    setS({ ...emptyState(), companyNumber });
     setError(null);
     setSuccess(null);
+    loadContributions(companyNumber);
   };
 
-  const handleEdit = (e: FormEvent) => {
+  const handleEdit = async (e: FormEvent) => {
     e.preventDefault();
     setError(null);
     setSuccess(null);
 
-    if (!s.companyNumber.trim()) {
-      setError('Company Number is required.');
+    const company = companies.find((c) => c.companyNumber === s.companyNumber);
+    const ee = parseFloat(s.ee);
+    const er = parseFloat(s.er);
+
+    if (!company || !s.companyNumber.trim()) {
+      setError('Please select a company.');
       return;
     }
     if (!s.category.trim()) {
       setError('Category is required.');
       return;
     }
-    if (!s.ee.trim()) {
+    if (!s.ee.trim() || !Number.isFinite(ee)) {
       setError('Employee Contribution is required.');
       return;
     }
-    if (!s.er.trim()) {
+    if (!s.er.trim() || !Number.isFinite(er)) {
       setError('Employer Contribution is required.');
       return;
     }
@@ -94,19 +127,40 @@ export default function EditContributions() {
       return;
     }
 
-    setRows((prev) => {
-      const next = [...prev];
-      next[index] = { ...next[index], ee: s.ee, er: s.er };
-      return next;
-    });
-    setSuccess(`Contribution for ${s.companyNumber} / ${s.category} updated.`);
+    const payload: CreateContributionRequest = {
+      companyNumber: s.companyNumber,
+      category: s.category,
+      EE: ee,
+      ER: er,
+    };
+
+    setLoading(true);
+    try {
+      const updated = await contributionsApi.update(payload);
+      setRows((prev) => {
+        const next = [...prev];
+        next[index] = updated;
+        return next;
+      });
+      setSuccess(`Contribution for ${s.companyNumber} / ${s.category} updated.`);
+    } catch (err) {
+      setError(extractApiError(err, 'Failed to update contribution.'));
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleClear = () => {
     setS(emptyState());
+    setRows([]);
     setError(null);
     setSuccess(null);
   };
+
+  const categoriesForCompany = useMemo(
+    () => [...new Set(rows.map((r) => r.category))],
+    [rows],
+  );
 
   return (
     <motion.div
@@ -139,13 +193,14 @@ export default function EditContributions() {
               className="kaf-input kaf-select"
               value={s.companyNumber}
               onChange={handleCompany}
+              disabled={companiesLoading || loading}
             >
               <option value="" disabled>
-                Select company number
+                {companiesLoading ? 'Loading companies…' : 'Select company number'}
               </option>
-              {COMPANIES.map((c) => (
-                <option key={c.number} value={c.number}>
-                  {c.number}
+              {companies.map((c) => (
+                <option key={c.companyNumber} value={c.companyNumber}>
+                  {c.companyNumber} — {c.companyName}
                 </option>
               ))}
             </select>
@@ -156,7 +211,7 @@ export default function EditContributions() {
               className="kaf-input kaf-select"
               value={s.category}
               onChange={onChange('category')}
-              disabled={!s.companyNumber}
+              disabled={!s.companyNumber || rowsLoading || loading}
             >
               <option value="" disabled>
                 {s.companyNumber ? 'Select category' : 'Select a company first'}
@@ -179,11 +234,11 @@ export default function EditContributions() {
         </div>
 
         <div style={{ display: 'flex', gap: 12, marginTop: 24, maxWidth: 640 }}>
-          <button type="button" className="kaf-btn-ghost" onClick={handleClear}>
+          <button type="button" className="kaf-btn-ghost" onClick={handleClear} disabled={loading}>
             Clear
           </button>
-          <button type="submit" className="kaf-btn" style={{ flex: 1 }}>
-            Edit Contribution
+          <button type="submit" className="kaf-btn" disabled={loading} style={{ flex: 1 }}>
+            {loading ? 'Saving…' : 'Edit Contribution'}
           </button>
         </div>
 
@@ -205,7 +260,7 @@ export default function EditContributions() {
             </tr>
           </thead>
           <tbody>
-            {filteredRows.map((row, i) => (
+            {rows.map((row, i) => (
               <tr key={i} style={{ borderBottom: '1px solid var(--kaf-border)' }}>
                 <td style={{ padding: '8px 6px' }}>{row.companyNumber}</td>
                 <td style={{ padding: '8px 6px' }}>{row.category}</td>

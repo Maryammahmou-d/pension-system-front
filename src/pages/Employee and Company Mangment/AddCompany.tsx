@@ -1,8 +1,11 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import type { ChangeEvent, FormEvent } from 'react';
 import { motion } from 'framer-motion';
 import { Building2 } from 'lucide-react';
 import PageHeader from '../../components/PageHeader';
+import { companiesApi } from '../../lib/companiesApi';
+import { extractApiError } from '../../lib/httpClient';
+import type { CreateCompanyRequest } from '../../types';
 
 const FREQUENCIES = ['Monthly', 'Quarterly', 'Semi-Annually', 'Annually'];
 
@@ -39,7 +42,7 @@ interface FormState {
 }
 
 const emptyState = (): FormState => ({
-  companyNumber: 'C000023',
+  companyNumber: '',
   kafCompanyNumber: '',
   companyName: '',
   issueDate: '',
@@ -75,6 +78,18 @@ export default function AddCompany() {
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
 
+  useEffect(() => {
+    companiesApi
+      .getLastNumber()
+      .then((last) => {
+        if (!last) return;
+        setS((prev) => (prev.companyNumber === '' ? { ...prev, companyNumber: last } : prev));
+      })
+      .catch((err) => {
+        console.error(extractApiError(err, 'Failed to load last company number.'));
+      });
+  }, []);
+
   const onChange = (key: keyof FormState) => (e: ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const value = e.target.type === 'checkbox' ? (e.target as HTMLInputElement).checked : e.target.value;
     setS((prev) => ({ ...prev, [key]: value } as FormState));
@@ -82,13 +97,12 @@ export default function AddCompany() {
     setSuccess(null);
   };
 
-  const handleAdd = (e: FormEvent) => {
+  const handleAdd = async (e: FormEvent) => {
     e.preventDefault();
     setError(null);
     setSuccess(null);
 
     const required: (keyof FormState)[] = [
-      'companyNumber',
       'kafCompanyNumber',
       'companyName',
       'issueDate',
@@ -120,7 +134,47 @@ export default function AddCompany() {
       return;
     }
 
-    setSuccess(`Company ${s.companyNumber} added. Backend is not yet connected.`);
+    const toNum = (v: string) => Number(v);
+    const toInt = (v: string) => Math.round(Number(v));
+    const toDate = (v: string) => `${v}T00:00:00Z`;
+
+    const payload: CreateCompanyRequest = {
+      kafsCompanyNumber: s.kafCompanyNumber,
+      companyName: s.companyName,
+      issueDate: toDate(s.issueDate),
+      frequency: s.frequency,
+      address: s.address,
+      contactPerson: s.contactPerson,
+      mobileNumber: s.mobileNumber,
+      email: s.email,
+      startingNumberOfEmployees: toInt(s.startingNumberOfEmployees),
+      startingAverageSalary: toNum(s.startingAverageSalary),
+      startingFundValue: toNum(s.startingFundValue),
+      contributionCharges: toNum(s.contributionCharges),
+      contributionChargesVee: toNum(s.contributionChargesVEE),
+      imc: toNum(s.imc),
+      withdrawalChargesEe: toNum(s.withdrawalChargesEE),
+      withdrawalChargesVee: toNum(s.withdrawalChargesVoluntaryEE),
+      withdrawalChargesEr: toNum(s.withdrawalChargesER),
+      employeeSurrenderCharge: toNum(s.surrenderCharges),
+      topUpCharges: toInt(s.topUpCharges),
+      adminCharges: toInt(s.monthlyAdminCharges),
+      portfolioSwitchingCharges: toInt(s.portfolioSwitchingCharges),
+      allocationRedirectionCharges: toInt(s.allocationRedirectionCharges),
+      newOrAcquired: toInt(s.newOrAcquired),
+      vestingOnHire: s.vestingOnHireDate,
+      maxWithdrawalPercentage: toNum(s.maxWithdrawalPercentage),
+      maxWithdrawalCount: toNum(s.maxAnnualWithdrawalFrequency),
+      salaryOrContribution: s.salaryOrContribution,
+      showAvailableWithdrawal: s.showAvailableForWithdrawal,
+    };
+
+    try {
+      const company = await companiesApi.create(payload);
+      setSuccess(`Company ${company.companyNumber} - ${company.companyName} created.`);
+    } catch (err) {
+      setError(extractApiError(err, 'Failed to create company.'));
+    }
   };
 
   const handleClear = () => {
@@ -156,8 +210,8 @@ export default function AddCompany() {
 
         <div style={{ display: 'flex', gap: 24 }}>
           <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 10 }}>
-            <FieldGroup label="Company Number" required>
-              <input className="kaf-input" type="text" value={s.companyNumber} onChange={onChange('companyNumber')} />
+            <FieldGroup label="Company Number">
+              <input className="kaf-input" type="text" value={s.companyNumber} readOnly />
             </FieldGroup>
 
             <FieldGroup label="Kaf's Company Number" required>

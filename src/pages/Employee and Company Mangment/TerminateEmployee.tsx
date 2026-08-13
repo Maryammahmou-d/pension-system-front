@@ -1,30 +1,12 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import type { ChangeEvent, FormEvent } from 'react';
 import { motion } from 'framer-motion';
 import { UserX } from 'lucide-react';
 import PageHeader from '../../components/PageHeader';
-
-interface Employee {
-  companyNumber: string;
-  employeeNumber: string;
-  fullName: string;
-}
-
-// TODO: replace with /api/companies data
-const COMPANIES = [
-  { number: '1001', issueDate: '2015-03-12' },
-  { number: '1002', issueDate: '2018-07-20' },
-  { number: '1003', issueDate: '2021-11-05' },
-];
-
-// TODO: replace with /api/employees data
-const EMPLOYEES: Employee[] = [
-  { companyNumber: '1001', employeeNumber: '1001-001', fullName: 'Ahmed Mohamed' },
-  { companyNumber: '1001', employeeNumber: '1001-002', fullName: 'Mohamed Ali' },
-  { companyNumber: '1001', employeeNumber: '1001-003', fullName: 'Mohamed Essayy' },
-  { companyNumber: '1002', employeeNumber: '1002-001', fullName: 'Sara Hany' },
-  { companyNumber: '1003', employeeNumber: '1003-001', fullName: 'Laila Saad' },
-];
+import type { Company, Employee } from '../../types';
+import { companiesApi } from '../../lib/companiesApi';
+import { employeesApi } from '../../lib/employeesApi';
+import { extractApiError } from '../../lib/httpClient';
 
 interface FormState {
   companyNumber: string;
@@ -35,8 +17,8 @@ interface FormState {
 }
 
 const emptyState = (): FormState => ({
-  companyNumber: '1001',
-  employeeNumber: '1001-003',
+  companyNumber: '',
+  employeeNumber: '',
   terminationDate: '',
   resignationDate: '',
   path: '',
@@ -46,8 +28,60 @@ export default function TerminateEmployee() {
   const [s, setS] = useState<FormState>(emptyState());
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
+  const [companies, setCompanies] = useState<Company[]>([]);
+  const [companiesLoading, setCompaniesLoading] = useState(false);
+  const [employees, setEmployees] = useState<Employee[]>([]);
+  const [employeesLoading, setEmployeesLoading] = useState(false);
 
-  const selectedEmployee = EMPLOYEES.find((e) => e.employeeNumber === s.employeeNumber);
+  const selectedEmployee = employees.find((e) => e.employeeNumber === s.employeeNumber);
+
+  useEffect(() => {
+    let cancelled = false;
+    setCompaniesLoading(true);
+    companiesApi
+      .getLatest()
+      .then((list) => {
+        if (cancelled) return;
+        setCompanies(list);
+      })
+      .catch((err) => {
+        if (cancelled) return;
+        setError(extractApiError(err, 'Failed to load companies.'));
+      })
+      .finally(() => {
+        if (!cancelled) setCompaniesLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!s.companyNumber) {
+      setEmployees([]);
+      setEmployeesLoading(false);
+      return;
+    }
+    let cancelled = false;
+    setEmployeesLoading(true);
+    setEmployees([]);
+    employeesApi
+      .getByCompanyNumber(s.companyNumber)
+      .then((list) => {
+        if (cancelled) return;
+        setEmployees(list);
+      })
+      .catch((err) => {
+        if (cancelled) return;
+        setError(extractApiError(err, 'Failed to load employees.'));
+      })
+      .finally(() => {
+        if (!cancelled) setEmployeesLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [s.companyNumber]);
 
   const onChange = (key: keyof FormState) => (e: ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     setS((prev) => ({ ...prev, [key]: e.target.value } as FormState));
@@ -56,9 +90,7 @@ export default function TerminateEmployee() {
   };
 
   const handleCompany = (e: ChangeEvent<HTMLSelectElement>) => {
-    const company = e.target.value;
-    const first = EMPLOYEES.find((emp) => emp.companyNumber === company);
-    setS({ ...emptyState(), companyNumber: company, employeeNumber: first?.employeeNumber ?? '' });
+    setS({ ...emptyState(), companyNumber: e.target.value, employeeNumber: '' });
     setError(null);
     setSuccess(null);
   };
@@ -141,13 +173,14 @@ export default function TerminateEmployee() {
               className="kaf-input kaf-select"
               value={s.companyNumber}
               onChange={handleCompany}
+              disabled={companiesLoading}
             >
               <option value="" disabled>
-                Select company number
+                {companiesLoading ? 'Loading companies…' : 'Select company number'}
               </option>
-              {COMPANIES.map((c) => (
-                <option key={c.number} value={c.number}>
-                  {c.number}
+              {companies.map((c) => (
+                <option key={c.companyNumber} value={c.companyNumber}>
+                  {c.companyNumber} — {c.companyName}
                 </option>
               ))}
             </select>
@@ -158,12 +191,16 @@ export default function TerminateEmployee() {
               className="kaf-input kaf-select"
               value={s.employeeNumber}
               onChange={handleEmployee}
-              disabled={!s.companyNumber}
+              disabled={!s.companyNumber || employeesLoading}
             >
               <option value="" disabled>
-                {s.companyNumber ? 'Select employee number' : 'Select a company first'}
+                {!s.companyNumber
+                  ? 'Select a company first'
+                  : employeesLoading
+                    ? 'Loading employees…'
+                    : 'Select employee number'}
               </option>
-              {EMPLOYEES.filter((emp) => emp.companyNumber === s.companyNumber).map((emp) => (
+              {employees.map((emp) => (
                 <option key={emp.employeeNumber} value={emp.employeeNumber}>
                   {emp.employeeNumber} - {emp.fullName}
                 </option>

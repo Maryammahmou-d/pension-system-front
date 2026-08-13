@@ -1,14 +1,13 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import type { ChangeEvent, FormEvent } from 'react';
 import { motion } from 'framer-motion';
 import { Building } from 'lucide-react';
 import PageHeader from '../../components/PageHeader';
+import type { Company } from '../../types';
+import { companiesApi } from '../../lib/companiesApi';
+import { extractApiError } from '../../lib/httpClient';
 
-const COMPANIES = [
-  { number: '1001', issueDate: '2015-03-12' },
-  { number: '1002', issueDate: '2018-07-20' },
-  { number: '1003', issueDate: '2021-11-05' },
-];
+
 
 interface FormState {
   companyNumber: string;
@@ -26,6 +25,29 @@ export default function TerminateCompany() {
   const [s, setS] = useState<FormState>(emptyState());
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
+  const [companies, setCompanies] = useState<Company[]>([]);
+  const [companiesLoading, setCompaniesLoading] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    setCompaniesLoading(true);
+    companiesApi
+      .getLatest()
+      .then((list) => {
+        if (cancelled) return;
+        setCompanies(list);
+      })
+      .catch((err) => {
+        if (cancelled) return;
+        setError(extractApiError(err, 'Failed to load companies.'));
+      })
+      .finally(() => {
+        if (!cancelled) setCompaniesLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const onChange = (key: keyof FormState) => (e: ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     setS((prev) => ({ ...prev, [key]: e.target.value } as FormState));
@@ -91,13 +113,14 @@ export default function TerminateCompany() {
               className="kaf-input kaf-select"
               value={s.companyNumber}
               onChange={onChange('companyNumber')}
+              disabled={companiesLoading}
             >
               <option value="" disabled>
-                Select company number
+                {companiesLoading ? 'Loading companies…' : 'Select company number'}
               </option>
-              {COMPANIES.map((c) => (
-                <option key={c.number} value={c.number}>
-                  {c.number}
+              {companies.map((c) => (
+                <option key={c.companyNumber} value={c.companyNumber}>
+                  {c.companyNumber} — {c.companyName}
                 </option>
               ))}
             </select>

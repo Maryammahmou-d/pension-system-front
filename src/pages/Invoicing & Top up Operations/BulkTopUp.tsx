@@ -4,9 +4,11 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Upload, CheckCircle2, AlertCircle } from 'lucide-react';
 import ExcelJS from 'exceljs';
 import PageHeader from '../../components/PageHeader';
-import { lookupsApi, topUpsApi } from '../../lib/api';
+import { topUpsApi } from '../../lib/api';
+import { companiesApi } from '../../lib/companiesApi';
+import { extractApiError } from '../../lib/httpClient';
 import { mockExportContents, saveFileWithPicker, suggestedNameFromPath } from '../../lib/saveFile';
-import type { BulkTopUpResult, BulkTopUpRow, CompanySummary } from '../../types';
+import type { BulkTopUpResult, BulkTopUpRow, Company } from '../../types';
 
 function cellText(value: ExcelJS.CellValue): string {
   if (value == null) return '';
@@ -116,7 +118,8 @@ async function parseTopUpWorkbook(file: File): Promise<BulkTopUpRow[]> {
 
 export default function BulkTopUp() {
   const fileRef = useRef<HTMLInputElement>(null);
-  const [companies, setCompanies] = useState<CompanySummary[]>([]);
+  const [companies, setCompanies] = useState<Company[]>([]);
+  const [companiesLoading, setCompaniesLoading] = useState(false);
   const [companyNumber, setCompanyNumber] = useState('');
   const [path, setPath] = useState('');
   const [loading, setLoading] = useState(false);
@@ -124,7 +127,22 @@ export default function BulkTopUp() {
   const [result, setResult] = useState<BulkTopUpResult | null>(null);
 
   useEffect(() => {
-    void lookupsApi.listCompanies(true).then(setCompanies).catch(() => setCompanies([]));
+    let cancelled = false;
+    setCompaniesLoading(true);
+    companiesApi
+      .getLatest()
+      .then((list) => {
+        if (!cancelled) setCompanies(list);
+      })
+      .catch((err) => {
+        if (!cancelled) setError(extractApiError(err, 'Failed to load companies.'));
+      })
+      .finally(() => {
+        if (!cancelled) setCompaniesLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   const handleUploadClick = (e: FormEvent) => {
@@ -191,9 +209,9 @@ export default function BulkTopUp() {
                 className="kaf-input kaf-select"
                 value={companyNumber}
                 onChange={(e) => setCompanyNumber(e.target.value)}
-                disabled={loading}
+                disabled={loading || companiesLoading}
               >
-                <option value="">Select company…</option>
+                <option value="">{companiesLoading ? 'Loading companies…' : 'Select company…'}</option>
                 {companies.map((c) => (
                   <option key={c.companyNumber} value={c.companyNumber}>
                     {c.companyNumber} — {c.companyName}

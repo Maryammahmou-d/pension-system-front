@@ -2,13 +2,16 @@ import { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
 import { Building2, FileSpreadsheet, FileText } from 'lucide-react';
 import PageHeader from '../../components/PageHeader';
-import { dateHelpers, lookupsApi, reportsApi } from '../../lib/api';
+import { dateHelpers, reportsApi } from '../../lib/api';
+import { companiesApi } from '../../lib/companiesApi';
+import { extractApiError } from '../../lib/httpClient';
 import { mockExportContents, saveFileWithPicker, suggestedNameFromPath } from '../../lib/saveFile';
-import type { CompanySummary } from '../../types';
+import type { Company } from '../../types';
 import { Field, ReportFeedback } from '../../components/reports/reportFormBits';
 
 export default function CompanyBalanceReport() {
-  const [companies, setCompanies] = useState<CompanySummary[]>([]);
+  const [companies, setCompanies] = useState<Company[]>([]);
+  const [companiesLoading, setCompaniesLoading] = useState(false);
   const [companyNumber, setCompanyNumber] = useState('');
   const [activeOnly, setActiveOnly] = useState(true);
   const [valuationDate, setValuationDate] = useState(dateHelpers.todayIso());
@@ -18,7 +21,22 @@ export default function CompanyBalanceReport() {
   const [success, setSuccess] = useState<string | null>(null);
 
   useEffect(() => {
-    void lookupsApi.listCompanies(false).then(setCompanies).catch(() => setCompanies([]));
+    let cancelled = false;
+    setCompaniesLoading(true);
+    companiesApi
+      .getLatest()
+      .then((list) => {
+        if (!cancelled) setCompanies(list);
+      })
+      .catch((err) => {
+        if (!cancelled) setError(extractApiError(err, 'Failed to load companies.'));
+      })
+      .finally(() => {
+        if (!cancelled) setCompaniesLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   const run = async (format: 'pdf' | 'excel') => {
@@ -64,9 +82,9 @@ export default function CompanyBalanceReport() {
               className="kaf-input kaf-select"
               value={companyNumber}
               onChange={(e) => { setCompanyNumber(e.target.value); setError(null); setSuccess(null); }}
-              disabled={!!loading}
+              disabled={!!loading || companiesLoading}
             >
-              <option value="">Select company…</option>
+              <option value="">{companiesLoading ? 'Loading companies…' : 'Select company…'}</option>
               {companies.map((c) => (
                 <option key={c.companyNumber} value={c.companyNumber}>
                   {c.companyNumber} — {c.companyName}
@@ -124,4 +142,3 @@ export default function CompanyBalanceReport() {
     </div>
   );
 }
-

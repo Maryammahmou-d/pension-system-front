@@ -3,9 +3,11 @@ import type { FormEvent } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { FilePlus2, CheckCircle2, AlertCircle } from 'lucide-react';
 import PageHeader from '../../components/PageHeader';
-import { dateHelpers, invoicesApi, lookupsApi } from '../../lib/api';
+import { dateHelpers, invoicesApi } from '../../lib/api';
+import { companiesApi } from '../../lib/companiesApi';
+import { extractApiError } from '../../lib/httpClient';
 import { mockExportContents, saveFileWithPicker, suggestedNameFromPath } from '../../lib/saveFile';
-import type { CompanySummary, CreateInvoiceResult } from '../../types';
+import type { Company, CreateInvoiceResult } from '../../types';
 
 const MONTHS = [
   { value: 1, label: '1' }, { value: 2, label: '2' }, { value: 3, label: '3' },
@@ -16,7 +18,8 @@ const MONTHS = [
 
 export default function CreateInvoice() {
   const now = new Date();
-  const [companies, setCompanies] = useState<CompanySummary[]>([]);
+  const [companies, setCompanies] = useState<Company[]>([]);
+  const [companiesLoading, setCompaniesLoading] = useState(false);
   const [companyNumber, setCompanyNumber] = useState('');
   const [month, setMonth] = useState(now.getMonth() + 1);
   const [year, setYear] = useState(now.getFullYear());
@@ -26,7 +29,22 @@ export default function CreateInvoice() {
   const [result, setResult] = useState<CreateInvoiceResult | null>(null);
 
   useEffect(() => {
-    void lookupsApi.listCompanies(true).then(setCompanies).catch(() => setCompanies([]));
+    let cancelled = false;
+    setCompaniesLoading(true);
+    companiesApi
+      .getLatest()
+      .then((list) => {
+        if (!cancelled) setCompanies(list);
+      })
+      .catch((err) => {
+        if (!cancelled) setError(extractApiError(err, 'Failed to load companies.'));
+      })
+      .finally(() => {
+        if (!cancelled) setCompaniesLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   const range = useMemo(() => dateHelpers.monthRange(year, month), [year, month]);
@@ -92,9 +110,9 @@ export default function CreateInvoice() {
                 className="kaf-input kaf-select"
                 value={companyNumber}
                 onChange={(e) => setCompanyNumber(e.target.value)}
-                disabled={loading}
+                disabled={loading || companiesLoading}
               >
-                <option value="">Select company…</option>
+                <option value="">{companiesLoading ? 'Loading companies…' : 'Select company…'}</option>
                 {companies.map((c) => (
                   <option key={c.companyNumber} value={c.companyNumber}>
                     {c.companyNumber} — {c.companyName}

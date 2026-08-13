@@ -1,27 +1,20 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import type { ChangeEvent, FormEvent } from 'react';
 import { motion } from 'framer-motion';
 import { Upload } from 'lucide-react';
 import PageHeader from '../../components/PageHeader';
 import { useAuth } from '../../lib/auth';
-
-interface Company {
-  number: string;
-  issueDate: string;
-  nextId: string;
-}
-
-// TODO: replace with /api/companies data
-const COMPANIES: Company[] = [
-  { number: 'C000004', issueDate: '1/1/2024', nextId: '1' },
-  { number: 'C000005', issueDate: '6/15/2023', nextId: '5' },
-];
-
+import { companiesApi } from '../../lib/companiesApi';
+import { employeesApi } from '../../lib/employeesApi';
+import { extractApiError } from '../../lib/httpClient';
+import type { Company } from '../../types';
 
 export default function ImportEmployees() {
   const { user } = useAuth();
   const currentUser = user?.fullName ?? user?.username ?? '';
 
+  const [companies, setCompanies] = useState<Company[]>([]);
+  const [companiesLoading, setCompaniesLoading] = useState(false);
   const [companyNumber, setCompanyNumber] = useState('');
   const [employeeId, setEmployeeId] = useState('');
   const [employeeNumber, setEmployeeNumber] = useState('');
@@ -31,25 +24,52 @@ export default function ImportEmployees() {
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
 
+  useEffect(() => {
+    let cancelled = false;
+    setCompaniesLoading(true);
+    companiesApi
+      .getLatest()
+      .then((list) => {
+        if (!cancelled) setCompanies(list);
+      })
+      .catch((err) => {
+        if (!cancelled) setError(extractApiError(err, 'Failed to load companies.'));
+      })
+      .finally(() => {
+        if (!cancelled) setCompaniesLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const handleCompany = (e: ChangeEvent<HTMLSelectElement>) => {
     const selected = e.target.value;
     setCompanyNumber(selected);
     setError(null);
     setSuccess(null);
+    setEmployeeId('');
+    setEmployeeNumber('');
+    setCompanyIssueDate('');
 
     if (!selected) {
-      setEmployeeId('');
-      setEmployeeNumber('');
-      setCompanyIssueDate('');
       return;
     }
 
-    const company = COMPANIES.find((c) => c.number === selected);
-    if (!company) return;
-    setEmployeeId(company.nextId);
-    setEmployeeNumber(`${company.number}_${company.nextId}`);
-    setCompanyIssueDate(company.issueDate);
+    const company = companies.find((c) => c.companyNumber === selected);
+    if (company) {
+      setCompanyIssueDate(company.issueDate);
+    }
+
+    employeesApi
+      .getNextNumber(selected)
+      .then(({ employeeId: nextId, employeeNumber: nextNumber }) => {
+        setEmployeeId(String(nextId));
+        setEmployeeNumber(nextNumber);
+      })
+      .catch((err) => {
+        setError(extractApiError(err, 'Failed to load next employee number.'));
+      });
   };
 
   const handleClear = () => {
@@ -119,13 +139,13 @@ export default function ImportEmployees() {
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(360px, 1fr))', gap: 40 }}>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
             <FieldGroup label="Company Number" required>
-              <select className="kaf-input kaf-select" value={companyNumber} onChange={handleCompany}>
-                <option value="" disabled>
-                  Select company number
+              <select className="kaf-input kaf-select" value={companyNumber} onChange={handleCompany} disabled={companiesLoading}>
+                <option value="">
+                  {companiesLoading ? 'Loading companies…' : 'Select company number'}
                 </option>
-                {COMPANIES.map((c) => (
-                  <option key={c.number} value={c.number}>
-                    {c.number}
+                {companies.map((c) => (
+                  <option key={c.companyNumber} value={c.companyNumber}>
+                    {c.companyNumber} — {c.companyName}
                   </option>
                 ))}
               </select>

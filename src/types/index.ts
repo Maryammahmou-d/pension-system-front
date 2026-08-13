@@ -79,6 +79,186 @@ export interface CompanySummary {
   active: boolean;
 }
 
+export interface CreateCompanyRequest {
+  kafsCompanyNumber: string;
+  companyName: string;
+  issueDate: string;
+  frequency: string;
+  address: string;
+  contactPerson: string;
+  mobileNumber: string;
+  email: string;
+  startingNumberOfEmployees: number;
+  startingAverageSalary: number;
+  startingFundValue: number;
+  contributionCharges: number;
+  contributionChargesVee: number;
+  imc: number;
+  withdrawalChargesEe: number;
+  withdrawalChargesVee: number;
+  withdrawalChargesEr: number;
+  employeeSurrenderCharge: number;
+  topUpCharges: number;
+  adminCharges: number;
+  portfolioSwitchingCharges: number;
+  allocationRedirectionCharges: number;
+  terminationDate?: string | null;
+  newOrAcquired: number;
+  vestingOnHire: boolean;
+  maxWithdrawalPercentage: number;
+  maxWithdrawalCount: number;
+  salaryOrContribution: boolean;
+  showAvailableWithdrawal: boolean;
+}
+
+export interface Company {
+  id?: number;
+  serial?: number;
+  modifiedDate?: string | null;
+  companyNumber: string;
+  kafsCompanyNumber: string;
+  companyName: string;
+  issueDate: string;
+  frequency: string;
+  address: string;
+  contactPerson: string;
+  mobileNumber: string;
+  email: string;
+  startingNumberOfEmployees: number;
+  startingAverageSalary: number;
+  startingFundValue: number;
+  contributionCharges: number;
+  contributionChargesVee: number;
+  imc: number;
+  withdrawalChargesEe: number;
+  withdrawalChargesVee: number;
+  withdrawalChargesEr: number;
+  employeeSurrenderCharge: number;
+  topUpCharges: number;
+  adminCharges: number;
+  portfolioSwitchingCharges: number;
+  allocationRedirectionCharges: number;
+  terminationDate?: string | null;
+  newOrAcquired: number;
+  vestingOnHire: boolean;
+  maxWithdrawalPercentage: number;
+  maxWithdrawalCount: number;
+  salaryOrContribution: boolean;
+  showAvailableWithdrawal: boolean;
+  userName?: string | null;
+}
+
+export interface CreateEmployeeRequest {
+  companyId: number;
+  nationalId: string;
+  fullName: string;
+  dob: string;
+  gender: string;
+  occupation: string;
+  hireDate: string;
+  ageAtHire: number;
+  pensionStartDate: string;
+  kafJoiningDate: string;
+  category: string;
+  grossSalary: number;
+  salaryCurrency: string;
+  contributionEe: number;
+  contributionEr: number;
+  email: string;
+  startingEeValue: number;
+  startingErValue: number;
+  startingFundValue: number;
+  terminationDate?: string | null;
+  resignationDate?: string | null;
+  vee: number;
+  weightF1Ee: number;
+  weightF2Ee: number;
+  weightF3Ee: number;
+  weightF4Ee: number;
+  weightF5Ee: number;
+  weightF6Ee: number;
+  weightF7Ee: number;
+  weightF8Ee: number;
+  weightF9Ee: number;
+  weightF10Ee: number;
+  weightF1Er: number;
+  weightF2Er: number;
+  weightF3Er: number;
+  weightF4Er: number;
+  weightF5Er: number;
+  weightF6Er: number;
+  weightF7Er: number;
+  weightF8Er: number;
+  weightF9Er: number;
+  weightF10Er: number;
+}
+
+export interface CreateContributionRequest {
+  companyNumber: string;
+  category: string;
+  EE: number;
+  ER: number;
+}
+
+export interface Contribution {
+  companyNumber: string;
+  category: string;
+  ee: number;
+  er: number;
+}
+
+export interface Employee {
+  employeeId: number;
+  employeeNumber: string;
+  companyNumber: string;
+  nationalId: string;
+  fullName: string;
+  dob: string;
+  gender: string;
+  occupation: string;
+  hireDate: string;
+  ageAtHire: number;
+  pensionStartDate: string;
+  kafJoiningDate: string;
+  category: string;
+  grossSalary: number;
+  salaryCurrency: string;
+  contributionEe: number;
+  contributionEr: number;
+  email: string;
+  startingEeValue: number;
+  startingErValue: number;
+  startingFundValue: number;
+  terminationDate?: string | null;
+  resignationDate?: string | null;
+  vee: number;
+  weightF1Ee: number;
+  weightF2Ee: number;
+  weightF3Ee: number;
+  weightF4Ee: number;
+  weightF5Ee: number;
+  weightF6Ee: number;
+  weightF7Ee: number;
+  weightF8Ee: number;
+  weightF9Ee: number;
+  weightF10Ee: number;
+  weightF1Er: number;
+  weightF2Er: number;
+  weightF3Er: number;
+  weightF4Er: number;
+  weightF5Er: number;
+  weightF6Er: number;
+  weightF7Er: number;
+  weightF8Er: number;
+  weightF9Er: number;
+  weightF10Er: number;
+}
+
+export interface EmployeeNumberResponse {
+  employeeId: number;
+  employeeNumber: string;
+}
+
 export interface EmployeeSummary {
   employeeNumber: string;
   fullName: string;
