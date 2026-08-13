@@ -1,14 +1,12 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import type { ChangeEvent, FormEvent } from 'react';
 import { motion } from 'framer-motion';
 import { PlusCircle } from 'lucide-react';
 import PageHeader from '../../components/PageHeader';
-
-const COMPANIES = [
-  { number: '1001', issueDate: '2015-03-12' },
-  { number: '1002', issueDate: '2018-07-20' },
-  { number: '1003', issueDate: '2021-11-05' },
-];
+import { companiesApi } from '../../lib/companiesApi';
+import { contributionsApi } from '../../lib/contributionsApi';
+import { extractApiError } from '../../lib/httpClient';
+import type { Company, CreateContributionRequest } from '../../types';
 
 interface Contribution {
   companyNumber: string;
@@ -36,6 +34,30 @@ export default function AddContributions() {
   const [rows, setRows] = useState<Contribution[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
+  const [companies, setCompanies] = useState<Company[]>([]);
+  const [companiesLoading, setCompaniesLoading] = useState(false);
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    setCompaniesLoading(true);
+    companiesApi
+      .getLatest()
+      .then((list) => {
+        if (cancelled) return;
+        setCompanies(list);
+      })
+      .catch((err) => {
+        if (cancelled) return;
+        setError(extractApiError(err, 'Failed to load companies.'));
+      })
+      .finally(() => {
+        if (!cancelled) setCompaniesLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const onChange = (key: keyof FormState) => (e: ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     setS((prev) => ({ ...prev, [key]: e.target.value } as FormState));
@@ -43,31 +65,50 @@ export default function AddContributions() {
     setSuccess(null);
   };
 
-  const handleAdd = (e: FormEvent) => {
+  const handleAdd = async (e: FormEvent) => {
     e.preventDefault();
     setError(null);
     setSuccess(null);
 
-    if (!s.companyNumber.trim()) {
-      setError('Company Number is required.');
+    const company = companies.find((c) => c.companyNumber === s.companyNumber);
+    const ee = parseFloat(s.ee);
+    const er = parseFloat(s.er);
+
+    if (!company || !s.companyNumber.trim()) {
+      setError('Please select a company.');
       return;
     }
     if (!s.category.trim()) {
       setError('Category is required.');
       return;
     }
-    if (!s.ee.trim()) {
+    if (!s.ee.trim() || !Number.isFinite(ee)) {
       setError('Employee Contribution is required.');
       return;
     }
-    if (!s.er.trim()) {
+    if (!s.er.trim() || !Number.isFinite(er)) {
       setError('Employer Contribution is required.');
       return;
     }
 
-    setRows((prev) => [...prev, { companyNumber: s.companyNumber, category: s.category, ee: s.ee, er: s.er }]);
-    setS((prev) => ({ ...emptyState(), companyNumber: prev.companyNumber }));
-    setSuccess(`Contribution for ${s.companyNumber} added.`);
+    const payload: CreateContributionRequest = {
+      companyNumber: s.companyNumber,
+      category: s.category,
+      EE: ee,
+      ER: er,
+    };
+
+    setLoading(true);
+    try {
+      await contributionsApi.create(payload);
+      setRows((prev) => [...prev, { companyNumber: s.companyNumber, category: s.category, ee: s.ee, er: s.er }]);
+      setS((prev) => ({ ...emptyState(), companyNumber: prev.companyNumber }));
+      setSuccess(`Contribution for ${s.companyNumber} added.`);
+    } catch (err) {
+      setError(extractApiError(err, 'Failed to add contribution.'));
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -101,13 +142,14 @@ export default function AddContributions() {
               className="kaf-input kaf-select"
               value={s.companyNumber}
               onChange={onChange('companyNumber')}
+              disabled={companiesLoading || loading}
             >
               <option value="" disabled>
-                Select company number
+                {companiesLoading ? 'Loading companies…' : 'Select company number'}
               </option>
-              {COMPANIES.map((c) => (
-                <option key={c.number} value={c.number}>
-                  {c.number}
+              {companies.map((c) => (
+                <option key={c.companyNumber} value={c.companyNumber}>
+                  {c.companyNumber} — {c.companyName}
                 </option>
               ))}
             </select>
@@ -131,8 +173,8 @@ export default function AddContributions() {
           </FieldGroup>
         </div>
 
-        <button type="submit" className="kaf-btn" style={{ display: 'block', width: '100%', maxWidth: 640, marginTop: 24 }}>
-          Add Contribution
+        <button type="submit" className="kaf-btn" disabled={loading || companiesLoading} style={{ display: 'block', width: '100%', maxWidth: 640, marginTop: 24 }}>
+          {loading ? 'Adding…' : 'Add Contribution'}
         </button>
 
         {rows.length > 0 && (

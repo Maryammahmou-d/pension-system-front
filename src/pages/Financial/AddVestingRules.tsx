@@ -2,8 +2,10 @@ import { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
 import { Scale, PlusCircle, AlertCircle, CheckCircle2 } from 'lucide-react';
 import PageHeader from '../../components/PageHeader';
-import { lookupsApi, vestingRulesApi } from '../../lib/api';
-import type { CompanySummary, VestingRule, VestingRuleSummary } from '../../types';
+import { vestingRulesApi } from '../../lib/api';
+import { companiesApi } from '../../lib/companiesApi';
+import { extractApiError } from '../../lib/httpClient';
+import type { Company, VestingRule, VestingRuleSummary } from '../../types';
 
 const YEARS = [
   { key: 'year1', label: 'Year 1', required: true },
@@ -26,7 +28,8 @@ const EMPTY: Record<YearKey, string> = {
 };
 
 export default function AddVestingRules() {
-  const [companies, setCompanies] = useState<CompanySummary[]>([]);
+  const [companies, setCompanies] = useState<Company[]>([]);
+  const [companiesLoading, setCompaniesLoading] = useState(false);
   const [rules, setRules] = useState<VestingRuleSummary[]>([]);
   const [companyNumber, setCompanyNumber] = useState('');
   const [values, setValues] = useState<Record<YearKey, string>>({ ...EMPTY });
@@ -35,8 +38,23 @@ export default function AddVestingRules() {
   const [success, setSuccess] = useState<string | null>(null);
 
   useEffect(() => {
-    void lookupsApi.listCompanies(true).then(setCompanies).catch(() => setCompanies([]));
+    let cancelled = false;
+    setCompaniesLoading(true);
+    companiesApi
+      .getLatest()
+      .then((list) => {
+        if (!cancelled) setCompanies(list);
+      })
+      .catch((err) => {
+        if (!cancelled) setError(extractApiError(err, 'Failed to load companies.'));
+      })
+      .finally(() => {
+        if (!cancelled) setCompaniesLoading(false);
+      });
     void vestingRulesApi.list().then(setRules).catch(() => setRules([]));
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   const handleChange = (key: YearKey, value: string) => {
@@ -112,9 +130,9 @@ export default function AddVestingRules() {
             className="kaf-input kaf-select"
             value={companyNumber}
             onChange={(e) => { setCompanyNumber(e.target.value); setError(null); setSuccess(null); }}
-            disabled={loading}
+            disabled={loading || companiesLoading}
           >
-            <option value="">Select company…</option>
+            <option value="">{companiesLoading ? 'Loading companies…' : 'Select company…'}</option>
             {companies.map((c) => (
               <option key={c.companyNumber} value={c.companyNumber}>
                 {c.companyNumber} — {c.companyName}

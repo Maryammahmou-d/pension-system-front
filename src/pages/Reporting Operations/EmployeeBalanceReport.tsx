@@ -2,14 +2,19 @@ import { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
 import { FileSpreadsheet, FileText, User } from 'lucide-react';
 import PageHeader from '../../components/PageHeader';
-import { dateHelpers, lookupsApi, reportsApi } from '../../lib/api';
+import { dateHelpers, reportsApi } from '../../lib/api';
+import { companiesApi } from '../../lib/companiesApi';
+import { employeesApi } from '../../lib/employeesApi';
+import { extractApiError } from '../../lib/httpClient';
 import { mockExportContents, saveFileWithPicker, suggestedNameFromPath } from '../../lib/saveFile';
-import type { CompanySummary, EmployeeSummary } from '../../types';
+import type { Company, Employee } from '../../types';
 import { Field, ReportFeedback } from '../../components/reports/reportFormBits';
 
 export default function EmployeeBalanceReport() {
-  const [companies, setCompanies] = useState<CompanySummary[]>([]);
-  const [employees, setEmployees] = useState<EmployeeSummary[]>([]);
+  const [companies, setCompanies] = useState<Company[]>([]);
+  const [employees, setEmployees] = useState<Employee[]>([]);
+  const [companiesLoading, setCompaniesLoading] = useState(false);
+  const [employeesLoading, setEmployeesLoading] = useState(false);
   const [companyNumber, setCompanyNumber] = useState('');
   const [employeeNumber, setEmployeeNumber] = useState('');
   const [valuationDate, setValuationDate] = useState(dateHelpers.todayIso());
@@ -19,12 +24,45 @@ export default function EmployeeBalanceReport() {
   const [success, setSuccess] = useState<string | null>(null);
 
   useEffect(() => {
-    void lookupsApi.listCompanies(true).then(setCompanies).catch(() => setCompanies([]));
+    let cancelled = false;
+    setCompaniesLoading(true);
+    companiesApi
+      .getLatest()
+      .then((list) => {
+        if (!cancelled) setCompanies(list);
+      })
+      .catch((err) => {
+        if (!cancelled) setError(extractApiError(err, 'Failed to load companies.'));
+      })
+      .finally(() => {
+        if (!cancelled) setCompaniesLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   useEffect(() => {
-    if (!companyNumber) { setEmployees([]); return; }
-    void lookupsApi.listEmployees(companyNumber).then(setEmployees).catch(() => setEmployees([]));
+    if (!companyNumber) {
+      setEmployees([]);
+      return;
+    }
+    let cancelled = false;
+    setEmployeesLoading(true);
+    employeesApi
+      .getByCompanyNumber(companyNumber)
+      .then((list) => {
+        if (!cancelled) setEmployees(list);
+      })
+      .catch((err) => {
+        if (!cancelled) setError(extractApiError(err, 'Failed to load employees.'));
+      })
+      .finally(() => {
+        if (!cancelled) setEmployeesLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
   }, [companyNumber]);
 
   const run = async (format: 'pdf' | 'excel') => {
@@ -75,9 +113,9 @@ export default function EmployeeBalanceReport() {
                 setError(null);
                 setSuccess(null);
               }}
-              disabled={!!loading}
+              disabled={!!loading || companiesLoading}
             >
-              <option value="">Select company…</option>
+              <option value="">{companiesLoading ? 'Loading companies…' : 'Select company…'}</option>
               {companies.map((c) => (
                 <option key={c.companyNumber} value={c.companyNumber}>
                   {c.companyNumber} — {c.companyName}
@@ -91,9 +129,11 @@ export default function EmployeeBalanceReport() {
               className="kaf-input kaf-select"
               value={employeeNumber}
               onChange={(e) => setEmployeeNumber(e.target.value)}
-              disabled={!!loading || !companyNumber}
+              disabled={!!loading || !companyNumber || employeesLoading}
             >
-              <option value="">Select employee…</option>
+              <option value="">
+                {!companyNumber ? 'Select company first' : employeesLoading ? 'Loading employees…' : 'Select employee…'}
+              </option>
               {employees.map((e) => (
                 <option key={e.employeeNumber} value={e.employeeNumber}>
                   {e.employeeNumber} — {e.fullName}
@@ -141,4 +181,3 @@ export default function EmployeeBalanceReport() {
     </div>
   );
 }
-

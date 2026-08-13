@@ -2,8 +2,10 @@ import { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
 import { FileBarChart2, Calculator, AlertCircle } from 'lucide-react';
 import PageHeader from '../../../components/PageHeader';
-import { lookupsApi, netCompanyFundsPaymentDateApi } from '../../../lib/api';
-import type { CompanySummary, NetCompanyFundsResult } from '../../../types';
+import { netCompanyFundsPaymentDateApi } from '../../../lib/api';
+import { companiesApi } from '../../../lib/companiesApi';
+import { extractApiError } from '../../../lib/httpClient';
+import type { Company, NetCompanyFundsResult } from '../../../types';
 
 const FUND_COLUMNS = [
   'eeUnits',
@@ -22,7 +24,8 @@ function fmt(n: number): string {
 }
 
 export default function NetCompanyFundsPaymentDate() {
-  const [companies, setCompanies] = useState<CompanySummary[]>([]);
+  const [companies, setCompanies] = useState<Company[]>([]);
+  const [companiesLoading, setCompaniesLoading] = useState(false);
   const [companyNumber, setCompanyNumber] = useState('');
   const [paymentDate, setPaymentDate] = useState('');
   const [loading, setLoading] = useState(false);
@@ -30,10 +33,22 @@ export default function NetCompanyFundsPaymentDate() {
   const [result, setResult] = useState<NetCompanyFundsResult | null>(null);
 
   useEffect(() => {
-    void lookupsApi
-      .listCompanies(true)
-      .then(setCompanies)
-      .catch(() => setCompanies([]));
+    let cancelled = false;
+    setCompaniesLoading(true);
+    companiesApi
+      .getLatest()
+      .then((list) => {
+        if (!cancelled) setCompanies(list);
+      })
+      .catch((err) => {
+        if (!cancelled) setError(extractApiError(err, 'Failed to load companies.'));
+      })
+      .finally(() => {
+        if (!cancelled) setCompaniesLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   const handleCalculate = async () => {
@@ -80,9 +95,9 @@ export default function NetCompanyFundsPaymentDate() {
               className="kaf-input kaf-select"
               value={companyNumber}
               onChange={(e) => { setCompanyNumber(e.target.value); setResult(null); setError(null); }}
-              disabled={loading}
+              disabled={loading || companiesLoading}
             >
-              <option value="">Select company…</option>
+              <option value="">{companiesLoading ? 'Loading companies…' : 'Select company…'}</option>
               {companies.map((c) => (
                 <option key={c.companyNumber} value={c.companyNumber}>
                   {c.companyNumber} — {c.companyName}

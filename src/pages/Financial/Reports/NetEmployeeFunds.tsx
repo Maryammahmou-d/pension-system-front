@@ -2,8 +2,11 @@ import { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
 import { FileBarChart2, Calculator, AlertCircle } from 'lucide-react';
 import PageHeader from '../../../components/PageHeader';
-import { lookupsApi, netEmployeeFundsApi } from '../../../lib/api';
-import type { CompanySummary, EmployeeSummary, NetEmployeeFundsResult } from '../../../types';
+import { netEmployeeFundsApi } from '../../../lib/api';
+import { companiesApi } from '../../../lib/companiesApi';
+import { employeesApi } from '../../../lib/employeesApi';
+import { extractApiError } from '../../../lib/httpClient';
+import type { Company, Employee, NetEmployeeFundsResult } from '../../../types';
 
 const FUND_COLUMNS = [
   'eeUnits',
@@ -22,8 +25,10 @@ function fmt(n: number): string {
 }
 
 export default function NetEmployeeFunds() {
-  const [companies, setCompanies] = useState<CompanySummary[]>([]);
-  const [employees, setEmployees] = useState<EmployeeSummary[]>([]);
+  const [companies, setCompanies] = useState<Company[]>([]);
+  const [employees, setEmployees] = useState<Employee[]>([]);
+  const [companiesLoading, setCompaniesLoading] = useState(false);
+  const [employeesLoading, setEmployeesLoading] = useState(false);
   const [companyNumber, setCompanyNumber] = useState('');
   const [employeeNumber, setEmployeeNumber] = useState('');
   const [valuationDate, setValuationDate] = useState('');
@@ -32,10 +37,22 @@ export default function NetEmployeeFunds() {
   const [result, setResult] = useState<NetEmployeeFundsResult | null>(null);
 
   useEffect(() => {
-    void lookupsApi
-      .listCompanies(true)
-      .then(setCompanies)
-      .catch(() => setCompanies([]));
+    let cancelled = false;
+    setCompaniesLoading(true);
+    companiesApi
+      .getLatest()
+      .then((list) => {
+        if (!cancelled) setCompanies(list);
+      })
+      .catch((err) => {
+        if (!cancelled) setError(extractApiError(err, 'Failed to load companies.'));
+      })
+      .finally(() => {
+        if (!cancelled) setCompaniesLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   useEffect(() => {
@@ -43,10 +60,22 @@ export default function NetEmployeeFunds() {
       setEmployees([]);
       return;
     }
-    void lookupsApi
-      .listEmployees(companyNumber)
-      .then(setEmployees)
-      .catch(() => setEmployees([]));
+    let cancelled = false;
+    setEmployeesLoading(true);
+    employeesApi
+      .getByCompanyNumber(companyNumber)
+      .then((list) => {
+        if (!cancelled) setEmployees(list);
+      })
+      .catch((err) => {
+        if (!cancelled) setError(extractApiError(err, 'Failed to load employees.'));
+      })
+      .finally(() => {
+        if (!cancelled) setEmployeesLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
   }, [companyNumber]);
 
   const onCompanyChange = (value: string) => {
@@ -104,9 +133,9 @@ export default function NetEmployeeFunds() {
               className="kaf-input kaf-select"
               value={companyNumber}
               onChange={(e) => onCompanyChange(e.target.value)}
-              disabled={loading}
+              disabled={loading || companiesLoading}
             >
-              <option value="">Select company…</option>
+              <option value="">{companiesLoading ? 'Loading companies…' : 'Select company…'}</option>
               {companies.map((c) => (
                 <option key={c.companyNumber} value={c.companyNumber}>
                   {c.companyNumber} — {c.companyName}
@@ -123,9 +152,11 @@ export default function NetEmployeeFunds() {
               className="kaf-input kaf-select"
               value={employeeNumber}
               onChange={(e) => { setEmployeeNumber(e.target.value); setResult(null); setError(null); }}
-              disabled={loading || !companyNumber}
+              disabled={loading || !companyNumber || employeesLoading}
             >
-              <option value="">Select employee…</option>
+              <option value="">
+                {!companyNumber ? 'Select company first' : employeesLoading ? 'Loading employees…' : 'Select employee…'}
+              </option>
               {employees.map((e) => (
                 <option key={e.employeeNumber} value={e.employeeNumber}>
                   {e.employeeNumber} — {e.fullName}

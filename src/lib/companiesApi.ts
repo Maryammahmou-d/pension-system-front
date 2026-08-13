@@ -20,6 +20,15 @@ export const companiesApi = {
     }
   },
 
+  getLastNumber: async (): Promise<string> => {
+    try {
+      const { data } = await http.get<string>('/companies/last-number');
+      return data;
+    } catch (err) {
+      throw new Error(extractApiError(err, 'Failed to load last company number.'));
+    }
+  },
+
   update: async (id: number, req: Partial<CreateCompanyRequest>): Promise<Company> => {
     try {
       const { data } = await http.put<Company>(`/companies/${id}`, req);

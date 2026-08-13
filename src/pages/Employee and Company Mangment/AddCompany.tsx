@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import type { ChangeEvent, FormEvent } from 'react';
 import { motion } from 'framer-motion';
 import { Building2 } from 'lucide-react';
@@ -42,7 +42,7 @@ interface FormState {
 }
 
 const emptyState = (): FormState => ({
-  companyNumber: 'C000023',
+  companyNumber: '',
   kafCompanyNumber: '',
   companyName: '',
   issueDate: '',
@@ -78,6 +78,18 @@ export default function AddCompany() {
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
 
+  useEffect(() => {
+    companiesApi
+      .getLastNumber()
+      .then((last) => {
+        if (!last) return;
+        setS((prev) => (prev.companyNumber === '' ? { ...prev, companyNumber: last } : prev));
+      })
+      .catch((err) => {
+        console.error(extractApiError(err, 'Failed to load last company number.'));
+      });
+  }, []);
+
   const onChange = (key: keyof FormState) => (e: ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const value = e.target.type === 'checkbox' ? (e.target as HTMLInputElement).checked : e.target.value;
     setS((prev) => ({ ...prev, [key]: value } as FormState));
@@ -91,7 +103,6 @@ export default function AddCompany() {
     setSuccess(null);
 
     const required: (keyof FormState)[] = [
-      'companyNumber',
       'kafCompanyNumber',
       'companyName',
       'issueDate',
@@ -128,7 +139,6 @@ export default function AddCompany() {
     const toDate = (v: string) => `${v}T00:00:00Z`;
 
     const payload: CreateCompanyRequest = {
-      companyNumber: s.companyNumber,
       kafsCompanyNumber: s.kafCompanyNumber,
       companyName: s.companyName,
       issueDate: toDate(s.issueDate),
@@ -200,8 +210,8 @@ export default function AddCompany() {
 
         <div style={{ display: 'flex', gap: 24 }}>
           <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 10 }}>
-            <FieldGroup label="Company Number" required>
-              <input className="kaf-input" type="text" value={s.companyNumber} onChange={onChange('companyNumber')} />
+            <FieldGroup label="Company Number">
+              <input className="kaf-input" type="text" value={s.companyNumber} readOnly />
             </FieldGroup>
 
             <FieldGroup label="Kaf's Company Number" required>

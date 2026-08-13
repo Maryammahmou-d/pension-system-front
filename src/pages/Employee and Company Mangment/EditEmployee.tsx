@@ -1,27 +1,21 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import type { ChangeEvent, FormEvent, ReactNode } from 'react';
 import { motion } from 'framer-motion';
 import { Pencil } from 'lucide-react';
 import PageHeader from '../../components/PageHeader';
+import type { Company, CreateEmployeeRequest, Employee } from '../../types';
+import { companiesApi } from '../../lib/companiesApi';
+import { contributionsApi } from '../../lib/contributionsApi';
+import { employeesApi } from '../../lib/employeesApi';
+import { extractApiError } from '../../lib/httpClient';
 
 const FUNDS = 10;
 const FUND_INDICES = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9];
 
 const GENDERS = ['Male', 'Female'];
 const CURRENCIES = ['EGP', 'USD', 'EUR'];
-const CATEGORIES = ['Category 1', 'Category 2', 'Category 3'];
 
-interface Company {
-  number: string;
-  issueDate: string;
-}
 
-// TODO: replace with /api/companies data
-const COMPANIES: Company[] = [
-  { number: '1001', issueDate: '2015-03-12' },
-  { number: '1002', issueDate: '2018-07-20' },
-  { number: '1003', issueDate: '2021-11-05' },
-];
 
 interface FormState {
   companyNumber: string;
@@ -81,47 +75,66 @@ const emptyUpdated = (): FormState => ({
   weightsER: Array.from({ length: FUNDS }, () => ''),
 });
 
-// Mock current employee record (replace with /api/employee/:id data later)
-const CURRENT: FormState = {
-  companyNumber: '1001',
-  companyIssueDate: '2015-03-12',
-  employeeId: 'EMP-1001-001',
-  employeeNumber: '1001-001',
-  nationalId: '12345678901234',
-  fullName: 'Ahmed Mohamed',
-  dateOfBirth: '1990-05-20',
-  gender: 'Male',
-  occupation: 'Software Engineer',
-  hireDate: '2020-01-15',
-  ageAtHire: '29',
-  pensionStartDate: '2055-05-20',
-  kafJoiningDate: '2020-02-01',
-  category: 'Category 1',
-  grossSalary: '25000',
-  salaryCurrency: 'EGP',
-  contributionEE: '1500',
-  contributionER: '3000',
-  email: 'ahmed.mohamed@example.com',
-  startingEEValue: '5000',
-  startingERValue: '10000',
-  startingFundValue: '15000',
-  veeContribution: '5.00',
-  weightsEE: Array.from({ length: FUNDS }, () => '10.00'),
-  weightsER: Array.from({ length: FUNDS }, () => '10.00'),
-};
-
-// TODO: replace with /api/employees data
-const EMPLOYEES: FormState[] = [
-  CURRENT,
-  { ...CURRENT, employeeNumber: '1001-002', employeeId: 'EMP-1001-002', fullName: 'Mohamed Ali', nationalId: '22334455667788' },
-  { ...CURRENT, companyNumber: '1002', companyIssueDate: '2018-07-20', employeeNumber: '1002-001', employeeId: 'EMP-1002-001', fullName: 'Sara Hany', nationalId: '33445566778899' },
-  { ...CURRENT, companyNumber: '1002', companyIssueDate: '2018-07-20', employeeNumber: '1002-002', employeeId: 'EMP-1002-002', fullName: 'Omar Khaled', nationalId: '44556677889900' },
-  { ...CURRENT, companyNumber: '1003', companyIssueDate: '2021-11-05', employeeNumber: '1003-001', employeeId: 'EMP-1003-001', fullName: 'Laila Saad', nationalId: '55667788990011' },
-];
 
 function toNum(value: string): number {
   const n = parseFloat(value);
   return Number.isFinite(n) ? n : 0;
+}
+
+function toInputDate(value?: string | null): string {
+  return value ? value.slice(0, 10) : '';
+}
+
+function employeeToFormState(emp: Employee, company?: Company | null): FormState {
+  return {
+    companyNumber: emp.companyNumber ?? '',
+    companyIssueDate: toInputDate(company?.issueDate),
+    employeeId: String(emp.employeeId ?? ''),
+    employeeNumber: emp.employeeNumber ?? '',
+    nationalId: emp.nationalId ?? '',
+    fullName: emp.fullName ?? '',
+    dateOfBirth: toInputDate(emp.dob),
+    gender: emp.gender ?? '',
+    occupation: emp.occupation ?? '',
+    hireDate: toInputDate(emp.hireDate),
+    ageAtHire: String(emp.ageAtHire ?? ''),
+    pensionStartDate: toInputDate(emp.pensionStartDate),
+    kafJoiningDate: toInputDate(emp.kafJoiningDate),
+    category: emp.category ?? '',
+    grossSalary: String(emp.grossSalary ?? ''),
+    salaryCurrency: emp.salaryCurrency ?? '',
+    contributionEE: String(emp.contributionEe ?? ''),
+    contributionER: String(emp.contributionEr ?? ''),
+    email: emp.email ?? '',
+    startingEEValue: String(emp.startingEeValue ?? ''),
+    startingERValue: String(emp.startingErValue ?? ''),
+    startingFundValue: String(emp.startingFundValue ?? ''),
+    veeContribution: String(emp.vee ?? ''),
+    weightsEE: [
+      emp.weightF1Ee,
+      emp.weightF2Ee,
+      emp.weightF3Ee,
+      emp.weightF4Ee,
+      emp.weightF5Ee,
+      emp.weightF6Ee,
+      emp.weightF7Ee,
+      emp.weightF8Ee,
+      emp.weightF9Ee,
+      emp.weightF10Ee,
+    ].map((v) => String(v ?? '')),
+    weightsER: [
+      emp.weightF1Er,
+      emp.weightF2Er,
+      emp.weightF3Er,
+      emp.weightF4Er,
+      emp.weightF5Er,
+      emp.weightF6Er,
+      emp.weightF7Er,
+      emp.weightF8Er,
+      emp.weightF9Er,
+      emp.weightF10Er,
+    ].map((v) => String(v ?? '')),
+  };
 }
 
 function hasChanges(updated: FormState): boolean {
@@ -133,16 +146,119 @@ function hasChanges(updated: FormState): boolean {
 }
 
 export default function EditEmployee() {
-  const [selectedCompany, setSelectedCompany] = useState(CURRENT.companyNumber);
-  const [selectedEmployee, setSelectedEmployee] = useState(CURRENT.employeeNumber);
+  const [selectedCompany, setSelectedCompany] = useState('');
+  const [selectedEmployee, setSelectedEmployee] = useState('');
   const [updated, setUpdated] = useState<FormState>(emptyUpdated());
+  const [current, setCurrent] = useState<FormState>(emptyUpdated());
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [companies, setCompanies] = useState<Company[]>([]);
+  const [companiesLoading, setCompaniesLoading] = useState(false);
+  const [employees, setEmployees] = useState<Employee[]>([]);
+  const [employeesLoading, setEmployeesLoading] = useState(false);
+  const [categories, setCategories] = useState<string[]>([]);
+  const [categoriesLoading, setCategoriesLoading] = useState(false);
 
-  const current = useMemo(
-    () => EMPLOYEES.find((e) => e.companyNumber === selectedCompany && e.employeeNumber === selectedEmployee) ?? CURRENT,
-    [selectedCompany, selectedEmployee]
-  );
+  useEffect(() => {
+    let cancelled = false;
+    setCompaniesLoading(true);
+    companiesApi
+      .getLatest()
+      .then((list) => {
+        if (cancelled) return;
+        setCompanies(list);
+      })
+      .catch((err) => {
+        if (cancelled) return;
+        setError(extractApiError(err, 'Failed to load companies.'));
+      })
+      .finally(() => {
+        if (!cancelled) setCompaniesLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!selectedCompany) {
+      setEmployees([]);
+      setSelectedEmployee('');
+      return;
+    }
+    let cancelled = false;
+    setEmployeesLoading(true);
+    employeesApi
+      .getByCompanyNumber(selectedCompany)
+      .then((list) => {
+        if (cancelled) return;
+        setEmployees(list);
+        if (list.length && !selectedEmployee) {
+          setSelectedEmployee(String(list[0].employeeId));
+        }
+      })
+      .catch((err) => {
+        if (cancelled) return;
+        setError(extractApiError(err, 'Failed to load employees.'));
+      })
+      .finally(() => {
+        if (!cancelled) setEmployeesLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedCompany]);
+
+  useEffect(() => {
+    if (!selectedCompany) {
+      setCategories([]);
+      setCategoriesLoading(false);
+      return;
+    }
+    let cancelled = false;
+    setCategoriesLoading(true);
+    setCategories([]);
+    contributionsApi
+      .getByCompanyNumber(selectedCompany)
+      .then((list) => {
+        if (cancelled) return;
+        const cats = [...new Set(list.map((c) => c.category))];
+        setCategories(cats);
+      })
+      .catch((err) => {
+        if (cancelled) return;
+        setError(extractApiError(err, 'Failed to load categories.'));
+      })
+      .finally(() => {
+        if (!cancelled) setCategoriesLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedCompany]);
+
+  useEffect(() => {
+    if (!selectedEmployee) {
+      setCurrent(emptyUpdated());
+      return;
+    }
+    let cancelled = false;
+    employeesApi
+      .getById(Number(selectedEmployee))
+      .then((emp) => {
+        if (cancelled) return;
+        const company = companies.find((c) => c.companyNumber === emp.companyNumber);
+        setCurrent(employeeToFormState(emp, company));
+      })
+      .catch((err) => {
+        if (cancelled) return;
+        setError(extractApiError(err, 'Failed to load employee.'));
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedEmployee, companies]);
 
   const updatedTotalEE = useMemo(
     () => updated.weightsEE.reduce((sum, v) => sum + toNum(v), 0),
@@ -155,11 +271,11 @@ export default function EditEmployee() {
 
   const currentTotalEE = useMemo(
     () => current.weightsEE.reduce((sum, v) => sum + toNum(v), 0),
-    [current]
+    [current.weightsEE]
   );
   const currentTotalER = useMemo(
     () => current.weightsER.reduce((sum, v) => sum + toNum(v), 0),
-    [current]
+    [current.weightsER]
   );
 
   const onString = (key: StringField) => (e: ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
@@ -180,10 +296,12 @@ export default function EditEmployee() {
   };
 
   const onSelectCompany = (e: ChangeEvent<HTMLSelectElement>) => {
-    const company = e.target.value;
-    setSelectedCompany(company);
-    const first = EMPLOYEES.find((emp) => emp.companyNumber === company);
-    setSelectedEmployee(first?.employeeNumber ?? '');
+    setSelectedCompany(e.target.value);
+    setSelectedEmployee('');
+    setEmployees([]);
+    setCategories([]);
+    setCategoriesLoading(false);
+    setCurrent(emptyUpdated());
     setUpdated(emptyUpdated());
     setError(null);
     setSuccess(null);
@@ -202,17 +320,94 @@ export default function EditEmployee() {
     setSuccess(null);
   };
 
-  const handleSubmit = (e: FormEvent) => {
+  const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
     setError(null);
     setSuccess(null);
+
+    if (!selectedEmployee) {
+      setError('Please select an employee to update.');
+      return;
+    }
 
     if (!hasChanges(updated)) {
       setSuccess('No changes were provided; current employee data will be kept.');
       return;
     }
 
-    setSuccess('Employee update simulated. Backend integration is not yet connected.');
+    const company = companies.find((c) => c.companyNumber === current.companyNumber);
+    if (!company || !company.id) {
+      setError('Selected company not found.');
+      return;
+    }
+
+    const pickString = (updatedValue: string, currentValue: string) =>
+      updatedValue.trim() || currentValue.trim();
+
+    const pickDate = (updatedValue: string, currentValue: string) => {
+      const v = updatedValue.trim() || currentValue.trim();
+      return v ? `${v}T00:00:00Z` : (null as unknown as string);
+    };
+
+    const pickNumber = (updatedValue: string, currentValue: string) => {
+      const v = updatedValue.trim() || currentValue.trim();
+      return v ? toNum(v) : (null as unknown as number);
+    };
+
+    const payload: CreateEmployeeRequest = {
+      companyId: company.id,
+      nationalId: pickString(updated.nationalId, current.nationalId),
+      fullName: pickString(updated.fullName, current.fullName),
+      dob: pickDate(updated.dateOfBirth, current.dateOfBirth),
+      gender: pickString(updated.gender, current.gender),
+      occupation: pickString(updated.occupation, current.occupation),
+      hireDate: pickDate(updated.hireDate, current.hireDate),
+      ageAtHire: pickNumber(updated.ageAtHire, current.ageAtHire),
+      pensionStartDate: pickDate(updated.pensionStartDate, current.pensionStartDate),
+      kafJoiningDate: pickDate(updated.kafJoiningDate, current.kafJoiningDate),
+      category: pickString(updated.category, current.category),
+      grossSalary: pickNumber(updated.grossSalary, current.grossSalary),
+      salaryCurrency: pickString(updated.salaryCurrency, current.salaryCurrency),
+      contributionEe: pickNumber(updated.contributionEE, current.contributionEE),
+      contributionEr: pickNumber(updated.contributionER, current.contributionER),
+      email: pickString(updated.email, current.email),
+      startingEeValue: pickNumber(updated.startingEEValue, current.startingEEValue),
+      startingErValue: pickNumber(updated.startingERValue, current.startingERValue),
+      startingFundValue: pickNumber(updated.startingFundValue, current.startingFundValue),
+      vee: pickNumber(updated.veeContribution, current.veeContribution),
+      weightF1Ee: pickNumber(updated.weightsEE[0], current.weightsEE[0]),
+      weightF2Ee: pickNumber(updated.weightsEE[1], current.weightsEE[1]),
+      weightF3Ee: pickNumber(updated.weightsEE[2], current.weightsEE[2]),
+      weightF4Ee: pickNumber(updated.weightsEE[3], current.weightsEE[3]),
+      weightF5Ee: pickNumber(updated.weightsEE[4], current.weightsEE[4]),
+      weightF6Ee: pickNumber(updated.weightsEE[5], current.weightsEE[5]),
+      weightF7Ee: pickNumber(updated.weightsEE[6], current.weightsEE[6]),
+      weightF8Ee: pickNumber(updated.weightsEE[7], current.weightsEE[7]),
+      weightF9Ee: pickNumber(updated.weightsEE[8], current.weightsEE[8]),
+      weightF10Ee: pickNumber(updated.weightsEE[9], current.weightsEE[9]),
+      weightF1Er: pickNumber(updated.weightsER[0], current.weightsER[0]),
+      weightF2Er: pickNumber(updated.weightsER[1], current.weightsER[1]),
+      weightF3Er: pickNumber(updated.weightsER[2], current.weightsER[2]),
+      weightF4Er: pickNumber(updated.weightsER[3], current.weightsER[3]),
+      weightF5Er: pickNumber(updated.weightsER[4], current.weightsER[4]),
+      weightF6Er: pickNumber(updated.weightsER[5], current.weightsER[5]),
+      weightF7Er: pickNumber(updated.weightsER[6], current.weightsER[6]),
+      weightF8Er: pickNumber(updated.weightsER[7], current.weightsER[7]),
+      weightF9Er: pickNumber(updated.weightsER[8], current.weightsER[8]),
+      weightF10Er: pickNumber(updated.weightsER[9], current.weightsER[9]),
+    };
+
+    setLoading(true);
+    try {
+      const result = await employeesApi.update(Number(selectedEmployee), payload);
+      setCurrent(employeeToFormState(result, company));
+      setUpdated(emptyUpdated());
+      setSuccess(`Employee ${result.employeeNumber} (ID: ${result.employeeId}) updated successfully.`);
+    } catch (err) {
+      setError(extractApiError(err, 'Failed to update employee.'));
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -276,18 +471,19 @@ export default function EditEmployee() {
                     className="kaf-input kaf-select"
                     value={selectedCompany}
                     onChange={onSelectCompany}
+                    disabled={companiesLoading}
                   >
                     <option value="" disabled>
-                      Select company number
+                      {companiesLoading ? 'Loading companies…' : 'Select company number'}
                     </option>
-                    {COMPANIES.map((c) => (
-                      <option key={c.number} value={c.number}>
-                        {c.number}
+                    {companies.map((c) => (
+                      <option key={c.companyNumber} value={c.companyNumber}>
+                        {c.companyNumber} — {c.companyName}
                       </option>
                     ))}
                   </select>
                 }
-                current={<ReadOnlyInput value={current.companyNumber} />}
+                current={<span />}
               />
 
               <FieldRow
@@ -297,32 +493,29 @@ export default function EditEmployee() {
                     className="kaf-input kaf-select"
                     value={selectedEmployee}
                     onChange={onSelectEmployee}
-                    disabled={!selectedCompany}
+                    disabled={!selectedCompany || employeesLoading}
                   >
                     <option value="" disabled>
-                      {selectedCompany ? 'Select employee number' : 'Select a company first'}
+                      {!selectedCompany
+                        ? 'Select a company first'
+                        : employeesLoading
+                          ? 'Loading employees…'
+                          : 'Select employee number'}
                     </option>
-                    {EMPLOYEES.filter((emp) => emp.companyNumber === selectedCompany).map((emp) => (
-                      <option key={emp.employeeNumber} value={emp.employeeNumber}>
-                        {emp.employeeNumber}
+                    {employees.map((emp) => (
+                      <option key={emp.employeeId} value={String(emp.employeeId)}>
+                        {emp.employeeNumber} — {emp.fullName}
                       </option>
                     ))}
                   </select>
                 }
-                current={<ReadOnlyInput value={current.employeeNumber} />}
+                current={<span />}
               />
 
               <FieldRow
                 label="Employee ID"
-                updated={
-                  <input
-                    className="kaf-input"
-                    type="text"
-                    value={updated.employeeId}
-                    onChange={onString('employeeId')}
-                  />
-                }
-                current={<ReadOnlyInput value={current.employeeId} />}
+                updated={<ReadOnlyInput value={current.employeeId} />}
+                current={<span />}
               />
 
               <FieldRow
@@ -440,15 +633,8 @@ export default function EditEmployee() {
 
               <FieldRow
                 label="Kaf Joining Date"
-                updated={
-                  <input
-                    className="kaf-input"
-                    type="date"
-                    value={updated.kafJoiningDate}
-                    onChange={onString('kafJoiningDate')}
-                  />
-                }
-                current={<ReadOnlyInput value={current.kafJoiningDate} />}
+                updated={<ReadOnlyInput value={current.kafJoiningDate} />}
+                current={<span />}
               />
 
               <FieldRow
@@ -458,11 +644,12 @@ export default function EditEmployee() {
                     className="kaf-input kaf-select"
                     value={updated.category}
                     onChange={onString('category')}
+                    disabled={loading || categoriesLoading}
                   >
                     <option value="" disabled>
-                      Select category
+                      {categoriesLoading ? 'Loading categories…' : 'Select category'}
                     </option>
-                    {CATEGORIES.map((c) => (
+                    {categories.map((c) => (
                       <option key={c} value={c}>
                         {c}
                       </option>
@@ -629,8 +816,8 @@ export default function EditEmployee() {
               alignSelf: 'center',
             }}
           >
-            <button type="submit" className="kaf-btn">
-              Edit
+            <button type="submit" className="kaf-btn" disabled={loading}>
+              {loading ? 'Saving…' : 'Edit'}
             </button>
             <button type="button" className="kaf-btn-ghost" onClick={handleClear}>
               Clear
