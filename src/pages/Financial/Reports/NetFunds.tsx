@@ -17,7 +17,7 @@ export default function NetFunds() {
     setResult(null);
 
     if (!valuationDate) {
-      setError('Valuation Date is required.');
+      setError('Please fill all required fields.');
       return;
     }
 

@@ -1,16 +1,14 @@
 import { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
-import { Users, Calculator, AlertCircle } from 'lucide-react';
+import { Users, Calculator, AlertCircle, CheckCircle2 } from 'lucide-react';
 import PageHeader from '../../../components/PageHeader';
 import { dateHelpers, employeeTerminationApi } from '../../../lib/api';
 import { companiesApi } from '../../../lib/companiesApi';
 import { employeesApi } from '../../../lib/employeesApi';
 import { extractApiError } from '../../../lib/httpClient';
-import type { Company, Employee, EmployeeTerminationEstimate } from '../../../types';
-
-function fmt(n: number): string {
-  return n.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 4 });
-}
+import { saveFileWithPicker, suggestedNameFromPath } from '../../../lib/saveFile';
+import { buildTerminationEstimatePdf } from '../../../lib/terminationEstimatePdf';
+import type { Company, Employee } from '../../../types';
 
 export default function EstimateEmployeeTermination() {
   const [companies, setCompanies] = useState<Company[]>([]);
@@ -23,7 +21,7 @@ export default function EstimateEmployeeTermination() {
   const [path, setPath] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [result, setResult] = useState<EmployeeTerminationEstimate | null>(null);
+  const [success, setSuccess] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -70,23 +68,30 @@ export default function EstimateEmployeeTermination() {
   const onCompanyChange = (value: string) => {
     setCompanyNumber(value);
     setEmployeeNumber('');
-    setResult(null);
     setError(null);
+    setSuccess(null);
   };
 
   const handleEstimate = async () => {
     setError(null);
-    setResult(null);
+    setSuccess(null);
 
     if (!companyNumber) return setError('Company Number is required.');
     if (!employeeNumber) return setError('Employee Number is required.');
     if (!terminationDate) return setError('Termination Date is required.');
-    if (!path.trim()) return setError('Path is required.');
 
     setLoading(true);
     try {
-      const res = await employeeTerminationApi.estimate(companyNumber, employeeNumber, terminationDate, path);
-      setResult(res);
+      const res = await employeeTerminationApi.estimate(companyNumber, employeeNumber, terminationDate);
+      const pdf = buildTerminationEstimatePdf(res);
+      const saved = await saveFileWithPicker({
+        suggestedName: suggestedNameFromPath(path, `Estimate_Termination_${employeeNumber}.pdf`),
+        contents: pdf,
+        mimeType: 'application/pdf',
+      });
+      if (saved === 'saved') {
+        setSuccess(`Estimate Employee Termination PDF saved for ${employeeNumber}.`);
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Estimate failed.');
     } finally {
@@ -130,7 +135,7 @@ export default function EstimateEmployeeTermination() {
             <select
               className="kaf-input kaf-select"
               value={employeeNumber}
-              onChange={(e) => { setEmployeeNumber(e.target.value); setResult(null); setError(null); }}
+              onChange={(e) => { setEmployeeNumber(e.target.value); setError(null); setSuccess(null); }}
               disabled={loading || !companyNumber || employeesLoading}
             >
               <option value="">
@@ -152,19 +157,18 @@ export default function EstimateEmployeeTermination() {
               className="kaf-input"
               type="date"
               value={terminationDate}
-              onChange={(e) => { setTerminationDate(e.target.value); setResult(null); setError(null); }}
+              onChange={(e) => { setTerminationDate(e.target.value); setError(null); setSuccess(null); }}
               disabled={loading}
             />
           </div>
 
           <div>
-            <label className="kaf-label">
-              Path<span style={{ color: 'var(--kaf-error)', marginLeft: 3 }}>*</span>
-            </label>
+            <label className="kaf-label">Path</label>
             <input
               className="kaf-input"
               value={path}
-              onChange={(e) => { setPath(e.target.value); setResult(null); setError(null); }}
+              onChange={(e) => { setPath(e.target.value); setError(null); setSuccess(null); }}
+              placeholder="Optional — choose location in the save dialog"
               disabled={loading}
             />
           </div>
@@ -189,47 +193,12 @@ export default function EstimateEmployeeTermination() {
             <AlertCircle size={15} /> {error}
           </div>
         )}
+        {success && (
+          <div className="kaf-callout ok" style={{ marginTop: 12, display: 'flex', alignItems: 'center', gap: 10 }}>
+            <CheckCircle2 size={16} /> {success}
+          </div>
+        )}
       </div>
-
-      {result && (
-        <div className="kaf-card" style={{ padding: '20px 22px' }}>
-          <div
-            style={{
-              display: 'grid',
-              gridTemplateColumns: '70px repeat(4, minmax(0, 1fr))',
-              gap: 6,
-              alignItems: 'center',
-            }}
-          >
-            <div className="kaf-label" style={{ textAlign: 'left' }}>Fund</div>
-            <div className="kaf-label" style={{ textAlign: 'center' }}>Employee Fund</div>
-            <div className="kaf-label" style={{ textAlign: 'center' }}>Voluntary Employee Fund</div>
-            <div className="kaf-label" style={{ textAlign: 'center' }}>Employer Fund</div>
-            <div className="kaf-label" style={{ textAlign: 'center' }}>Unit Price</div>
-
-            {result.rows.map((row) => (
-              <>
-                <div key={`f${row.fund}-label`} className="kaf-label" style={{ textAlign: 'left' }}>Fund {row.fund}</div>
-                <input key={`f${row.fund}-ee`} className="kaf-input" readOnly value={fmt(row.employeeFund)} style={{ textAlign: 'right', padding: 4, fontSize: 12 }} />
-                <input key={`f${row.fund}-vee`} className="kaf-input" readOnly value={fmt(row.voluntaryEmployeeFund)} style={{ textAlign: 'right', padding: 4, fontSize: 12 }} />
-                <input key={`f${row.fund}-er`} className="kaf-input" readOnly value={fmt(row.employerFund)} style={{ textAlign: 'right', padding: 4, fontSize: 12 }} />
-                <input key={`f${row.fund}-price`} className="kaf-input" readOnly value={fmt(row.unitPrice)} style={{ textAlign: 'right', padding: 4, fontSize: 12 }} />
-              </>
-            ))}
-
-            <div className="kaf-label" style={{ textAlign: 'left' }}>Total</div>
-            <input className="kaf-input" readOnly value={fmt(result.totalEmployeeFund)} style={{ textAlign: 'right', padding: 4, fontSize: 12 }} />
-            <input className="kaf-input" readOnly value={fmt(result.totalVoluntaryEmployeeFund)} style={{ textAlign: 'right', padding: 4, fontSize: 12 }} />
-            <input className="kaf-input" readOnly value={fmt(result.totalEmployerFund)} style={{ textAlign: 'right', padding: 4, fontSize: 12 }} />
-            <input className="kaf-input" readOnly value={fmt(result.rows.reduce((s, r) => s + r.unitPrice, 0) / 10)} style={{ textAlign: 'right', padding: 4, fontSize: 12 }} />
-          </div>
-
-          <div style={{ marginTop: 20 }}>
-            <label className="kaf-label">Estimated total funds</label>
-            <input className="kaf-input" readOnly value={fmt(result.total)} style={{ maxWidth: 300, textAlign: 'right', background: 'var(--kaf-surface-3)' }} />
-          </div>
-        </div>
-      )}
     </div>
   );
 }

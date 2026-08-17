@@ -51,7 +51,6 @@ export default function EditVestingRules() {
       .finally(() => {
         if (!cancelled) setCompaniesLoading(false);
       });
-    void vestingRulesApi.list().then(setRules).catch(() => setRules([]));
     return () => {
       cancelled = true;
     };
@@ -60,20 +59,32 @@ export default function EditVestingRules() {
   useEffect(() => {
     if (!companyNumber) {
       setValues({ ...EMPTY });
+      setRules([]);
       return;
     }
+    let cancelled = false;
     void vestingRulesApi
       .get(companyNumber)
       .then((rule) => {
+        if (cancelled) return;
         if (rule) {
           const next = { ...EMPTY };
           for (const { key } of YEARS) next[key] = String(rule[key]);
           setValues(next);
+          setRules([rule]);
         } else {
           setValues({ ...EMPTY });
+          setRules([]);
         }
       })
-      .catch(() => setValues({ ...EMPTY }));
+      .catch(() => {
+        if (cancelled) return;
+        setValues({ ...EMPTY });
+        setRules([]);
+      });
+    return () => {
+      cancelled = true;
+    };
   }, [companyNumber]);
 
   const handleChange = (key: YearKey, value: string) => {
@@ -117,10 +128,9 @@ export default function EditVestingRules() {
 
     setLoading(true);
     try {
-      await vestingRulesApi.update(rule);
+      const updated = await vestingRulesApi.update(rule);
       setSuccess(`Vesting rules updated for ${companyNumber}.`);
-      const updated = await vestingRulesApi.list();
-      setRules(updated);
+      setRules([updated]);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to update vesting rules.');
     } finally {
@@ -239,7 +249,11 @@ export default function EditVestingRules() {
               ))}
               {rules.length === 0 && (
                 <tr>
-                  <td colSpan={11} style={{ color: 'var(--kaf-muted)' }}>No vesting rules defined.</td>
+                  <td colSpan={11} style={{ color: 'var(--kaf-muted)' }}>
+                    {companyNumber
+                      ? 'No vesting rules defined for this company.'
+                      : 'Select a company to view existing vesting rules.'}
+                  </td>
                 </tr>
               )}
             </tbody>

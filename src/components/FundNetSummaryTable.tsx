@@ -4,37 +4,11 @@ import { fmtAccessFundCell } from '../lib/formatNumber';
 
 type FundRow = FundNetSummary | NetCompanyFundRow;
 
-const COLUMNS = [
-  'eeUnits',
-  'veeUnits',
-  'erUnits',
-  'totalUnits',
-  'unitPrice',
-  'eeFunds',
-  'veeFunds',
-  'erFunds',
-  'totalFunds',
-] as const;
+const UNIT_COLUMNS = ['eeUnits', 'veeUnits', 'erUnits', 'totalUnits'] as const;
+const FUND_COLUMNS = ['eeFunds', 'veeFunds', 'erFunds', 'totalFunds'] as const;
 
-const HEADERS = [
-  'EE Fund',
-  'VEE Fund',
-  'ER Fund',
-  'Total Units',
-  'Unit Price',
-  'EE Fund',
-  'VEE Fund',
-  'ER Fund',
-  'Total Funds',
-] as const;
-
-const grid: CSSProperties = {
-  display: 'grid',
-  gridTemplateColumns: '72px repeat(4, minmax(70px, 1fr)) 96px repeat(4, minmax(70px, 1fr))',
-  columnGap: 6,
-  rowGap: 8,
-  alignItems: 'center',
-};
+const UNIT_HEADERS = ['EE Fund', 'VEE Fund', 'ER Fund', 'Total Units'] as const;
+const FUND_HEADERS = ['EE Fund', 'VEE Fund', 'ER Fund', 'Total Funds'] as const;
 
 const heading: CSSProperties = {
   fontSize: 11,
@@ -44,6 +18,7 @@ const heading: CSSProperties = {
   letterSpacing: 0.4,
   textAlign: 'center',
   margin: 0,
+  minHeight: 16,
 };
 
 const rowLabel: CSSProperties = {
@@ -58,6 +33,24 @@ const cellInput: CSSProperties = {
   width: '100%',
   minWidth: 0,
 };
+
+const section: CSSProperties = {
+  display: 'grid',
+  rowGap: 8,
+  columnGap: 6,
+  alignItems: 'center',
+};
+
+const divider: CSSProperties = {
+  width: 1,
+  alignSelf: 'stretch',
+  background: 'var(--kaf-text)',
+  flexShrink: 0,
+};
+
+function HeaderCell({ children, style }: { children?: string; style?: CSSProperties }) {
+  return <div style={{ ...heading, ...style }}>{children ?? '\u00a0'}</div>;
+}
 
 export default function FundNetSummaryTable({
   rows,
@@ -74,43 +67,78 @@ export default function FundNetSummaryTable({
 }) {
   return (
     <div style={{ overflowX: 'auto', marginBottom: 8 }}>
-      <div style={{ ...grid, minWidth: 920 }}>
-        <div />
-        <div style={{ ...heading, gridColumn: '2 / span 4' }}>Total Units</div>
-        <div style={{ ...heading, gridColumn: '6 / span 1' }}>Unit Price</div>
-        <div style={{ ...heading, gridColumn: '7 / span 4' }}>Total Funds</div>
+      <div style={{ display: 'flex', alignItems: 'stretch', gap: 10, minWidth: 940 }}>
+        <div style={{ ...section, gridTemplateColumns: '72px' }}>
+          <HeaderCell style={rowLabel} />
+          <HeaderCell style={rowLabel}>Fund</HeaderCell>
+          {rows.map((row) => (
+            <div key={row.fund} style={rowLabel}>Fund {row.fund}</div>
+          ))}
+          <HeaderCell />
+        </div>
 
-        <div style={rowLabel}>Fund</div>
-        {HEADERS.map((label, i) => (
-          <div key={`${label}-${i}`} style={heading}>{label}</div>
-        ))}
-
-        {rows.map((row) => (
-          <div key={row.fund} style={{ display: 'contents' }}>
-            <div style={rowLabel}>Fund {row.fund}</div>
-            {COLUMNS.map((col) => (
+        <div style={{ ...section, gridTemplateColumns: 'repeat(4, minmax(70px, 1fr))', flex: 1 }}>
+          <HeaderCell style={{ gridColumn: '1 / -1' }}>Total Units</HeaderCell>
+          {UNIT_HEADERS.map((label) => (
+            <HeaderCell key={label}>{label}</HeaderCell>
+          ))}
+          {rows.map((row) =>
+            UNIT_COLUMNS.map((col) => (
               <input
-                key={col}
+                key={`${row.fund}-${col}`}
                 className="kaf-input"
                 type="text"
                 readOnly
                 value={fmtAccessFundCell(col, row[col])}
                 style={cellInput}
               />
-            ))}
-          </div>
-        ))}
+            )),
+          )}
+          <HeaderCell style={{ gridColumn: '1 / -1' }} />
+        </div>
 
-        <div />
-        <div />
-        <div />
-        <div />
-        <div />
-        <div style={heading}>Total</div>
-        <input className="kaf-input" type="text" readOnly value={fmtAccessFundCell('eeFunds', totalEEFunds)} style={cellInput} />
-        <input className="kaf-input" type="text" readOnly value={fmtAccessFundCell('veeFunds', totalVEEFunds)} style={cellInput} />
-        <input className="kaf-input" type="text" readOnly value={fmtAccessFundCell('erFunds', totalERFunds)} style={cellInput} />
-        <input className="kaf-input" type="text" readOnly value={fmtAccessFundCell('totalFunds', totalFunds)} style={cellInput} />
+        <div style={divider} />
+
+        <div style={{ ...section, gridTemplateColumns: '96px' }}>
+          <HeaderCell>Unit Price</HeaderCell>
+          <HeaderCell />
+          {rows.map((row) => (
+            <input
+              key={row.fund}
+              className="kaf-input"
+              type="text"
+              readOnly
+              value={fmtAccessFundCell('unitPrice', row.unitPrice)}
+              style={cellInput}
+            />
+          ))}
+          <HeaderCell>Total</HeaderCell>
+        </div>
+
+        <div style={divider} />
+
+        <div style={{ ...section, gridTemplateColumns: 'repeat(4, minmax(70px, 1fr))', flex: 1 }}>
+          <HeaderCell style={{ gridColumn: '1 / -1' }}>Total Funds</HeaderCell>
+          {FUND_HEADERS.map((label) => (
+            <HeaderCell key={label}>{label}</HeaderCell>
+          ))}
+          {rows.map((row) =>
+            FUND_COLUMNS.map((col) => (
+              <input
+                key={`${row.fund}-${col}`}
+                className="kaf-input"
+                type="text"
+                readOnly
+                value={fmtAccessFundCell(col, row[col])}
+                style={cellInput}
+              />
+            )),
+          )}
+          <input className="kaf-input" type="text" readOnly value={fmtAccessFundCell('eeFunds', totalEEFunds)} style={cellInput} />
+          <input className="kaf-input" type="text" readOnly value={fmtAccessFundCell('veeFunds', totalVEEFunds)} style={cellInput} />
+          <input className="kaf-input" type="text" readOnly value={fmtAccessFundCell('erFunds', totalERFunds)} style={cellInput} />
+          <input className="kaf-input" type="text" readOnly value={fmtAccessFundCell('totalFunds', totalFunds)} style={cellInput} />
+        </div>
       </div>
     </div>
   );

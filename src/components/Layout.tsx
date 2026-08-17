@@ -62,9 +62,16 @@ const link = (
 });
 
 function NavItemLabel({ label, labelLines }: { label: string; labelLines?: string[] }) {
+  const wrapStyle = {
+    whiteSpace: 'normal' as const,
+    lineHeight: 1.25,
+    flex: 1,
+    minWidth: 0,
+  };
+
   if (labelLines?.length) {
     return (
-      <span style={{ whiteSpace: 'normal', lineHeight: 1.25 }}>
+      <span style={wrapStyle}>
         {labelLines.map((line) => (
           <span key={line} style={{ display: 'block' }}>{line}</span>
         ))}
@@ -72,11 +79,7 @@ function NavItemLabel({ label, labelLines }: { label: string; labelLines?: strin
     );
   }
 
-  return (
-    <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-      {label}
-    </span>
-  );
+  return <span style={wrapStyle}>{label}</span>;
 }
 
 /** Access Actions order — linked pages + placeholders for not-yet-built screens. */
@@ -273,7 +276,7 @@ export default function Layout() {
                             <span style={navIconWrap(false, isLight)}>
                               <Icon size={13} color={isLight ? 'rgba(107,2,125,0.4)' : 'var(--kaf-muted)'} />
                             </span>
-                            <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                            <span style={{ whiteSpace: 'normal', lineHeight: 1.25, flex: 1, minWidth: 0 }}>
                               {item.label}
                             </span>
                           </div>
@@ -349,7 +352,7 @@ export default function Layout() {
                           <span style={navIconWrap(false, isLight)}>
                             <Icon size={13} color={isLight ? 'rgba(107,2,125,0.4)' : 'var(--kaf-muted)'} />
                           </span>
-                          <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                          <span style={{ whiteSpace: 'normal', lineHeight: 1.25, flex: 1, minWidth: 0 }}>
                             {item.label}
                           </span>
                         </div>

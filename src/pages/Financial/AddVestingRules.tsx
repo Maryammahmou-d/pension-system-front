@@ -51,11 +51,29 @@ export default function AddVestingRules() {
       .finally(() => {
         if (!cancelled) setCompaniesLoading(false);
       });
-    void vestingRulesApi.list().then(setRules).catch(() => setRules([]));
     return () => {
       cancelled = true;
     };
   }, []);
+
+  useEffect(() => {
+    if (!companyNumber) {
+      setRules([]);
+      return;
+    }
+    let cancelled = false;
+    void vestingRulesApi
+      .get(companyNumber)
+      .then((rule) => {
+        if (!cancelled) setRules(rule ? [rule] : []);
+      })
+      .catch(() => {
+        if (!cancelled) setRules([]);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [companyNumber]);
 
   const handleChange = (key: YearKey, value: string) => {
     setValues((prev) => ({ ...prev, [key]: value }));
@@ -102,8 +120,7 @@ export default function AddVestingRules() {
       setSuccess(`Vesting rules added for ${companyNumber}.`);
       setCompanyNumber('');
       setValues({ ...EMPTY });
-      const updated = await vestingRulesApi.list();
-      setRules(updated);
+      setRules([]);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to add vesting rules.');
     } finally {
@@ -222,7 +239,11 @@ export default function AddVestingRules() {
               ))}
               {rules.length === 0 && (
                 <tr>
-                  <td colSpan={11} style={{ color: 'var(--kaf-muted)' }}>No vesting rules defined.</td>
+                  <td colSpan={11} style={{ color: 'var(--kaf-muted)' }}>
+                    {companyNumber
+                      ? 'No vesting rules defined for this company.'
+                      : 'Select a company to view existing vesting rules.'}
+                  </td>
                 </tr>
               )}
             </tbody>

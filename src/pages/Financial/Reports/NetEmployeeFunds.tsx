@@ -74,16 +74,8 @@ export default function NetEmployeeFunds() {
     setError(null);
     setResult(null);
 
-    if (!companyNumber) {
-      setError('Company Number is required.');
-      return;
-    }
-    if (!employeeNumber) {
-      setError('Employee Number is required.');
-      return;
-    }
-    if (!valuationDate) {
-      setError('Valuation Date is required.');
+    if (!companyNumber || !employeeNumber || !valuationDate) {
+      setError('Please fill all required fields.');
       return;
     }
 

@@ -4,7 +4,7 @@ import { extractApiError, http } from './httpClient';
 export const unitPricesApi = {
   save: async (userId: number, row: UnitPriceRow): Promise<UnitPriceRow> => {
     try {
-      const payload = { ...row, priceDate: `${row.priceDate}T00:00:00Z` };
+      const payload = { ...row, priceDate: `${row.priceDate}T00:00:00+03:00` };
       const { data } = await http.post<UnitPriceRow>(`/unit-price/${userId}`, payload);
       return data;
     } catch (err) {

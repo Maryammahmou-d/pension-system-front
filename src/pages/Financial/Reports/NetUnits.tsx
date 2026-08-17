@@ -2,14 +2,9 @@ import { useState } from 'react';
 import { motion } from 'framer-motion';
 import { FileBarChart2, Calculator, AlertCircle } from 'lucide-react';
 import PageHeader from '../../../components/PageHeader';
+import FundUnitsTable from '../../../components/FundUnitsTable';
 import { netUnitsApi } from '../../../lib/api';
 import type { NetUnitsResult } from '../../../types';
-
-const COLUMNS = ['eeUnits', 'veeUnits', 'erUnits', 'totalUnits'] as const;
-
-function fmt(n: number): string {
-  return n.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 4 });
-}
 
 export default function NetUnits() {
   const [valuationDate, setValuationDate] = useState('');
@@ -22,7 +17,7 @@ export default function NetUnits() {
     setResult(null);
 
     if (!valuationDate) {
-      setError('Valuation Date is required.');
+      setError('Please fill all required fields.');
       return;
     }
 
@@ -83,42 +78,13 @@ export default function NetUnits() {
 
         {result && (
           <>
-            <div
-              style={{
-                display: 'grid',
-                gridTemplateColumns: '70px repeat(4, minmax(0, 1fr))',
-                gap: 6,
-                alignItems: 'center',
-                marginBottom: 8,
-              }}
-            >
-              <div className="kaf-label" style={{ textAlign: 'left' }}>Fund</div>
-              {['EE Fund', 'VEE Fund', 'ER Fund', 'Total Units'].map((h) => (
-                <div key={h} className="kaf-label" style={{ textAlign: 'center' }}>{h}</div>
-              ))}
-
-              {result.rows.map((row) => (
-                <>
-                  <div key={`f${row.fund}-label`} className="kaf-label" style={{ textAlign: 'left' }}>Fund {row.fund}</div>
-                  {COLUMNS.map((col) => (
-                    <input
-                      key={`f${row.fund}-${col}`}
-                      className="kaf-input"
-                      type="text"
-                      readOnly
-                      value={fmt(row[col])}
-                      style={{ textAlign: 'right', padding: '6px 8px', fontSize: 12 }}
-                    />
-                  ))}
-                </>
-              ))}
-
-              <div key="total-label" className="kaf-label" style={{ textAlign: 'left' }}>Total</div>
-              <input key="total-ee" className="kaf-input" type="text" readOnly value={fmt(result.totalEEUnits)} style={{ textAlign: 'right', padding: '6px 8px', fontSize: 12 }} />
-              <input key="total-vee" className="kaf-input" type="text" readOnly value={fmt(result.totalVEEUnits)} style={{ textAlign: 'right', padding: '6px 8px', fontSize: 12 }} />
-              <input key="total-er" className="kaf-input" type="text" readOnly value={fmt(result.totalERUnits)} style={{ textAlign: 'right', padding: '6px 8px', fontSize: 12 }} />
-              <input key="total-all" className="kaf-input" type="text" readOnly value={fmt(result.totalUnits)} style={{ textAlign: 'right', padding: '6px 8px', fontSize: 12 }} />
-            </div>
+            <FundUnitsTable
+              rows={result.rows}
+              totalEEUnits={result.totalEEUnits}
+              totalVEEUnits={result.totalVEEUnits}
+              totalERUnits={result.totalERUnits}
+              totalUnits={result.totalUnits}
+            />
 
             <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 20 }}>
               <label className="kaf-label" style={{ marginBottom: 0 }}>Results are extracted for:</label>
