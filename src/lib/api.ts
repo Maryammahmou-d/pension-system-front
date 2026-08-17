@@ -202,12 +202,11 @@ export const usersApi = {
 };
 
 export { unitPricesApi } from './unitPricesApi';
+export { netCompanyFundsApi } from './netCompanyFundsApi';
 export {
   invoicesApi,
   topUpsApi,
   lookupsApi,
-  netCompanyFundsApi,
-  netCompanyFundsPaymentDateApi,
   netEmployeeFundsApi,
   netFundsApi,
   netUnitsApi,

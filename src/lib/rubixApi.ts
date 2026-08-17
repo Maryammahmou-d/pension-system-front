@@ -22,6 +22,7 @@ import type {
   Invoice,
   InvoiceEmployeeLine,
   NetCompanyFundsResult,
+  NetCompanyFundRow,
   SettleInvoiceRequest,
   TopUpRequest,
   VestingRule,
@@ -470,7 +471,7 @@ export const netCompanyFundsApi = {
     if (!unitPrice) throw new Error('No unit price for the selected valuation date.');
 
     const employees = _employees.filter((e) => e.companyNumber === companyNumber && e.active);
-    const rows: FundNetSummary[] = [];
+    const rows: NetCompanyFundRow[] = [];
 
     for (let i = 1; i <= 10; i += 1) {
       const price = ((unitPrice as unknown) as Record<string, number>)[`fund${i}`] ?? 0;
@@ -497,15 +498,16 @@ export const netCompanyFundsApi = {
       });
     }
 
-    const totalEEFunds = rows.reduce((s, r) => s + r.eeFunds, 0);
-    const totalVEEFunds = rows.reduce((s, r) => s + r.veeFunds, 0);
-    const totalERFunds = rows.reduce((s, r) => s + r.erFunds, 0);
+    const totalEEFunds = rows.reduce((s, r) => s + (r.eeFunds ?? 0), 0);
+    const totalVEEFunds = rows.reduce((s, r) => s + (r.veeFunds ?? 0), 0);
+    const totalERFunds = rows.reduce((s, r) => s + (r.erFunds ?? 0), 0);
     const totalFunds = totalEEFunds + totalVEEFunds + totalERFunds;
 
     return {
       companyNumber,
       companyName: company.companyName,
       valuationDate,
+      dateFinal: valuationDate,
       rows,
       totalEEFunds,
       totalVEEFunds,
@@ -514,9 +516,6 @@ export const netCompanyFundsApi = {
     };
   },
 };
-
-// Payment-date variant of the same report.
-export const netCompanyFundsPaymentDateApi = netCompanyFundsApi;
 
 // ── Net Employee Funds ───────────────────────────────────────────
 

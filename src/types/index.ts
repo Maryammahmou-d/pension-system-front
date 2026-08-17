@@ -395,11 +395,25 @@ export interface FundNetSummary {
   totalFunds: number;
 }
 
+export interface NetCompanyFundRow {
+  fund: number;
+  eeUnits: number | null;
+  veeUnits: number | null;
+  erUnits: number | null;
+  totalUnits: number;
+  unitPrice: number | null;
+  eeFunds: number | null;
+  veeFunds: number | null;
+  erFunds: number | null;
+  totalFunds: number;
+}
+
 export interface NetCompanyFundsResult {
   companyNumber: string;
   companyName: string;
   valuationDate: string;
-  rows: FundNetSummary[];
+  dateFinal: string | null;
+  rows: NetCompanyFundRow[];
   totalEEFunds: number;
   totalVEEFunds: number;
   totalERFunds: number;

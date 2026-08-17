@@ -34,7 +34,6 @@ export type PageKey =
   | 'employeeFundsWithdrawal'
   | 'estimateEmployeeTermination'
   | 'netCompanyFundsModifiedDate'
-  | 'netCompanyFundsPaymentDate'
   | 'netEmployeeFunds'
   | 'netFunds'
   | 'netUnits'
@@ -80,7 +79,6 @@ export const PAGE_ROLES: Record<PageKey, UserSecurityRole[]> = {
   employeeFundsWithdrawal: ['Operations'],
   estimateEmployeeTermination: ['Operations'],
   netCompanyFundsModifiedDate: ['Operations', 'Actuarial'],
-  netCompanyFundsPaymentDate: ['Operations', 'Actuarial'],
   netEmployeeFunds: ['Operations', 'Actuarial'],
   netFunds: ['Operations', 'Investment', 'Actuarial'],
   netUnits: ['Investment', 'Actuarial'],
@@ -128,7 +126,6 @@ export const PAGE_ROUTES: Record<PageKey, string> = {
   employeeFundsWithdrawal: '/financial/employee-funds-withdrawal',
   estimateEmployeeTermination: '/financial/estimate-employee-termination',
   netCompanyFundsModifiedDate: '/reports/net-company-funds-modified-date',
-  netCompanyFundsPaymentDate: '/financial/net-company-funds-payment-date',
   netEmployeeFunds: '/financial/net-employee-funds',
   netFunds: '/financial/net-funds',
   netUnits: '/financial/net-units',
@@ -198,7 +195,6 @@ export const LANDING_ORDER: PageKey[] = [
   'movementSummaryForDay',
   'companiesFunds',
   'netCompanyFundsModifiedDate',
-  'netCompanyFundsPaymentDate',
   'netEmployeeFunds',
   'netFunds',
   'netUnits',

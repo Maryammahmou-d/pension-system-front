@@ -2,24 +2,9 @@ import { useState } from 'react';
 import { motion } from 'framer-motion';
 import { FileBarChart2, Calculator, AlertCircle } from 'lucide-react';
 import PageHeader from '../../../components/PageHeader';
+import FundNetSummaryTable from '../../../components/FundNetSummaryTable';
 import { netFundsApi } from '../../../lib/api';
 import type { NetFundsResult } from '../../../types';
-
-const FUND_COLUMNS = [
-  'eeUnits',
-  'veeUnits',
-  'erUnits',
-  'totalUnits',
-  'unitPrice',
-  'eeFunds',
-  'veeFunds',
-  'erFunds',
-  'totalFunds',
-] as const;
-
-function fmt(n: number): string {
-  return n.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 4 });
-}
 
 export default function NetFunds() {
   const [valuationDate, setValuationDate] = useState('');
@@ -93,52 +78,13 @@ export default function NetFunds() {
 
         {result && (
           <>
-            <div
-              style={{
-                display: 'grid',
-                gridTemplateColumns: '70px repeat(4, minmax(0, 1fr)) 100px repeat(4, minmax(0, 1fr))',
-                gap: 6,
-                alignItems: 'center',
-                marginBottom: 8,
-              }}
-            >
-              <div></div>
-              <div className="kaf-label" style={{ textAlign: 'center', gridColumn: '2 / span 4' }}>Total Units</div>
-              <div className="kaf-label" style={{ textAlign: 'center', gridColumn: '7 / span 1' }}>Unit Price</div>
-              <div className="kaf-label" style={{ textAlign: 'center', gridColumn: '8 / span 4' }}>Total Funds</div>
-
-              <div className="kaf-label" style={{ textAlign: 'left' }}>Fund</div>
-              {['EE Fund', 'VEE Fund', 'ER Fund', 'Total Units', 'Unit Price', 'EE Fund', 'VEE Fund', 'ER Fund', 'Total Funds'].map((h) => (
-                <div key={h} className="kaf-label" style={{ textAlign: 'center' }}>{h}</div>
-              ))}
-
-              {result.rows.map((row) => (
-                <>
-                  <div key={`f${row.fund}-label`} className="kaf-label" style={{ textAlign: 'left' }}>Fund {row.fund}</div>
-                  {FUND_COLUMNS.map((col) => (
-                    <input
-                      key={`f${row.fund}-${col}`}
-                      className="kaf-input"
-                      type="text"
-                      readOnly
-                      value={col === 'unitPrice' ? fmt(row[col]) : fmt(row[col] as number)}
-                      style={{ textAlign: 'right', padding: '6px 8px', fontSize: 12 }}
-                    />
-                  ))}
-                </>
-              ))}
-
-              <div key="total-label" className="kaf-label" style={{ textAlign: 'left' }}></div>
-              <div key="total-eeu" className="kaf-label" style={{ textAlign: 'left' }}></div>
-              <div key="total-veeu" className="kaf-label" style={{ textAlign: 'left' }}></div>
-              <div key="total-eru" className="kaf-label" style={{ textAlign: 'left' }}></div>
-              <div key="total-tu" className="kaf-label" style={{ textAlign: 'left' }}></div>
-              <div key="total-text" className="kaf-label" style={{ textAlign: 'center' }}>Total</div>
-              <input key="total-ee" className="kaf-input" type="text" readOnly value={fmt(result.totalEEFunds)} style={{ textAlign: 'right', padding: '6px 8px', fontSize: 12 }} />
-              <input key="total-vee" className="kaf-input" type="text" readOnly value={fmt(result.totalVEEFunds)} style={{ textAlign: 'right', padding: '6px 8px', fontSize: 12 }} />
-              <input key="total-er" className="kaf-input" type="text" readOnly value={fmt(result.totalERFunds)} style={{ textAlign: 'right', padding: '6px 8px', fontSize: 12 }} />
-              <input key="total-all" className="kaf-input" type="text" readOnly value={fmt(result.totalFunds)} style={{ textAlign: 'right', padding: '6px 8px', fontSize: 12 }} />
-            </div>
+            <FundNetSummaryTable
+              rows={result.rows}
+              totalEEFunds={result.totalEEFunds}
+              totalVEEFunds={result.totalVEEFunds}
+              totalERFunds={result.totalERFunds}
+              totalFunds={result.totalFunds}
+            />
 
             <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 20 }}>
               <label className="kaf-label" style={{ marginBottom: 0 }}>Results are extracted for:</label>
