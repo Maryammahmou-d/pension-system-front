@@ -3,6 +3,7 @@ import type { FormEvent } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { TrendingUp, CheckCircle2, AlertCircle, RotateCcw } from 'lucide-react';
 import PageHeader from '../../../components/PageHeader';
+import { useAuth } from '../../../lib/auth';
 import { dateHelpers, lookupsApi, unitPricesApi } from '../../../lib/api';
 import type { UnitPriceRow } from '../../../types';
 
@@ -31,6 +32,7 @@ export default function UpdateUnitPrice() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
+  const { user } = useAuth();
 
   useEffect(() => {
     let cancelled = false;
@@ -92,9 +94,14 @@ export default function UpdateUnitPrice() {
       (row as Record<FundKey, number>)[key] = Number(values[key]) || 0;
     }
 
+    if (!user?.id) {
+      setError('You must be signed in to save unit prices.');
+      return;
+    }
+
     setLoading(true);
     try {
-      await unitPricesApi.save(row);
+      await unitPricesApi.save(user.id, row);
       setSuccess(`Unit prices saved for ${priceDate}.`);
       setPriceDate(dateHelpers.todayIso());
       setValues({ ...EMPTY });
