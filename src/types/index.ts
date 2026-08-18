@@ -278,6 +278,7 @@ export interface UnitPriceRow {
   fund8: number;
   fund9: number;
   fund10: number;
+  userName?: string | null;
 }
 
 export interface Invoice {

@@ -21,12 +21,14 @@ export type PageKey =
   | 'terminateEmployee'
   | 'terminateEmployeesBulk'
   // Invoicing & top-ups
+  | 'unsettledInvoices'
   | 'createInvoice'
   | 'settleInvoice'
   | 'cancelInvoice'
   | 'addTopUp'
   | 'bulkTopUp'
   // Financial
+  | 'viewUnitPrices'
   | 'updateUnitPrice'
   | 'runMonthlyCharges'
   | 'addVestingRules'
@@ -66,12 +68,14 @@ export const PAGE_ROLES: Record<PageKey, UserSecurityRole[]> = {
   terminateEmployee: ['Operations'],
   terminateEmployeesBulk: ['Operations'],
 
+  unsettledInvoices: ['Operations', 'CRM', 'Investment'],
   createInvoice: ['Operations'],
   settleInvoice: ['CRM', 'Investment'],
   cancelInvoice: ['Tech'],
   addTopUp: ['Operations'],
   bulkTopUp: ['Operations'],
 
+  viewUnitPrices: ['Investment', 'Operations', 'Actuarial', 'Tech', 'CRM'],
   updateUnitPrice: ['Investment'],
   runMonthlyCharges: ['Operations'],
   addVestingRules: ['Operations'],
@@ -113,12 +117,14 @@ export const PAGE_ROUTES: Record<PageKey, string> = {
   terminateEmployee: '/employees/terminate',
   terminateEmployeesBulk: '/employees/terminate-bulk',
 
+  unsettledInvoices: '/billing/unsettled-invoices',
   createInvoice: '/billing/create-invoice',
   settleInvoice: '/billing/settle-invoice',
   cancelInvoice: '/billing/cancel-invoice',
   addTopUp: '/top-ups/add',
   bulkTopUp: '/top-ups/bulk',
 
+  viewUnitPrices: '/unit-prices/view',
   updateUnitPrice: '/unit-prices/update',
   runMonthlyCharges: '/financial/run-monthly-charges',
   addVestingRules: '/financial/add-vesting-rules',
@@ -166,6 +172,7 @@ export function canAccess(
  */
 export const LANDING_ORDER: PageKey[] = [
   'userManagement',
+  'viewUnitPrices',
   'updateUnitPrice',
   'runMonthlyCharges',
   'hrBalanceDashboard',
@@ -178,6 +185,7 @@ export const LANDING_ORDER: PageKey[] = [
   'addEmployee',
   'importEmployees',
   'editEmployee',
+  'unsettledInvoices',
   'createInvoice',
   'settleInvoice',
   'cancelInvoice',

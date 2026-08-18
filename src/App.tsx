@@ -21,6 +21,8 @@ import CancelInvoice from './pages/Invoicing & Top up Operations/CancelInvoice';
 import AddTopUp from './pages/Invoicing & Top up Operations/AddTopUp';
 import BulkTopUp from './pages/Invoicing & Top up Operations/BulkTopUp';
 import UpdateUnitPrice from './pages/Financial/UnitPrices/UpdateUnitPrice';
+import ViewUnitPrices from './pages/Financial/UnitPrices/ViewUnitPrices';
+import UnSettledInvoices from './pages/Invoicing & Top up Operations/UnSettledInvoices';
 import NetCompanyFundsModifiedDate from './pages/Financial/Reports/NetCompanyFundsModifiedDate';
 import NetEmployeeFunds from './pages/Financial/Reports/NetEmployeeFunds';
 import NetFunds from './pages/Financial/Reports/NetFunds';
@@ -67,12 +69,14 @@ const PAGE_ELEMENTS: Record<PageKey, ReactElement> = {
   terminateEmployee: <TerminateEmployee />,
   terminateEmployeesBulk: <TerminateEmployeesBulk />,
 
+  unsettledInvoices: <UnSettledInvoices />,
   createInvoice: <CreateInvoice />,
   settleInvoice: <SettleInvoice />,
   cancelInvoice: <CancelInvoice />,
   addTopUp: <AddTopUp />,
   bulkTopUp: <BulkTopUp />,
 
+  viewUnitPrices: <ViewUnitPrices />,
   updateUnitPrice: <UpdateUnitPrice />,
   runMonthlyCharges: <RunMonthlyCharges />,
   addVestingRules: <AddVestingRules />,

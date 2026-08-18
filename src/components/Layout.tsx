@@ -110,8 +110,8 @@ const ACTIONS_ITEMS: NavItem[] = [
 
 /** Access Reports order — implemented links + remaining placeholders. */
 const REPORTS_ITEMS: NavItem[] = [
-  { kind: 'placeholder', label: 'View Unit Prices', icon: FileBarChart2 },
-  { kind: 'placeholder', label: 'Unsettled Invoices', icon: FileBarChart2 },
+  link('viewUnitPrices', 'View Unit Prices', TrendingUp),
+  link('unsettledInvoices', 'Unsettled Invoices', FileBarChart2),
   link('companyTransactions', 'Extract Company Transactions', FileBarChart2),
   link('employeeTransactions', 'Extract Employee Transactions', FileBarChart2),
   link('transactionsBetweenDates', 'Extract Transactions Between Dates', FileBarChart2),
