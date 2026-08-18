@@ -37,16 +37,40 @@ function downloadBlob(blob: Blob, fileName: string) {
   URL.revokeObjectURL(url);
 }
 
+export async function writeSaveLocation(location: Exclude<SaveLocation, { mode: 'cancelled' }>, contents: Blob): Promise<void> {
+  if (location.mode === 'handle') {
+    await location.write(contents);
+    return;
+  }
+  downloadBlob(contents, location.fileName);
+}
+
 /**
  * Open a native Save dialog when available (Chrome/Edge), else trigger a browser download.
  */
 export async function saveFileWithPicker(opts: SaveFileOptions): Promise<SaveFileResult> {
-  const fileName = sanitizeFileName(opts.suggestedName);
-  const mimeType = opts.mimeType ?? 'text/plain';
+  const target = await requestSaveLocation(opts);
+  if (target.mode === 'cancelled') return 'cancelled';
   const blob =
     opts.contents instanceof Blob
       ? opts.contents
-      : new Blob([opts.contents], { type: mimeType });
+      : new Blob([opts.contents], { type: opts.mimeType ?? 'text/plain' });
+  await writeSaveLocation(target, blob);
+  return 'saved';
+}
+
+export type SaveLocation =
+  | { mode: 'handle'; write: (contents: Blob) => Promise<void> }
+  | { mode: 'download'; fileName: string }
+  | { mode: 'cancelled' };
+
+/** Call this directly from a click handler so the browser still treats it as a user gesture. */
+export async function requestSaveLocation(opts: {
+  suggestedName: string;
+  mimeType?: string;
+}): Promise<SaveLocation> {
+  const fileName = sanitizeFileName(opts.suggestedName);
+  const mimeType = opts.mimeType ?? 'text/plain';
 
   const w = window as Window & {
     showSaveFilePicker?: (options?: {
@@ -66,26 +90,27 @@ export async function saveFileWithPicker(opts: SaveFileOptions): Promise<SaveFil
         suggestedName: fileName,
         types: [
           {
-            description: 'Export',
-            accept: { [mimeType]: [`.${fileName.split('.').pop() || 'txt'}`] },
+            description: 'PDF',
+            accept: { [mimeType]: [`.${fileName.split('.').pop() || 'pdf'}`] },
           },
         ],
       });
-      const writable = await handle.createWritable();
-      await writable.write(blob);
-      await writable.close();
-      return 'saved';
+      return {
+        mode: 'handle',
+        write: async (contents: Blob) => {
+          const writable = await handle.createWritable();
+          await writable.write(contents);
+          await writable.close();
+        },
+      };
     } catch (err) {
-      // User cancelled, or API rejected (e.g. insecure context).
-      if (err instanceof DOMException && (err.name === 'AbortError' || err.name === 'NotAllowedError')) {
-        return 'cancelled';
+      if (err instanceof DOMException && err.name === 'AbortError') {
+        return { mode: 'cancelled' };
       }
-      // Fall through to download fallback for other failures.
     }
   }
 
-  downloadBlob(blob, fileName);
-  return 'saved';
+  return { mode: 'download', fileName };
 }
 
 export function mockExportContents(reportLabel: string, meta?: Record<string, unknown>): string {

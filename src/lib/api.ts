@@ -203,18 +203,18 @@ export const usersApi = {
 
 export { unitPricesApi } from './unitPricesApi';
 export {
-  invoicesApi,
-  topUpsApi,
-  lookupsApi,
   netCompanyFundsApi,
-  netCompanyFundsPaymentDateApi,
   netEmployeeFundsApi,
   netFundsApi,
   netUnitsApi,
-  monthlyChargesApi,
-  vestingRulesApi,
-  employeeFundsWithdrawalApi,
-  employeeTerminationApi,
+} from './netReportsApi';
+export { vestingRulesApi } from './vestingRulesApi';
+export { monthlyChargesApi } from './monthlyChargesApi';
+export { employeeFundsWithdrawalApi, employeeTerminationApi } from './employeeFundsApi';
+export {
+  invoicesApi,
+  topUpsApi,
+  lookupsApi,
   reportsApi,
   dateHelpers,
 } from './rubixApi';

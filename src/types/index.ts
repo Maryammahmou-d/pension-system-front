@@ -395,11 +395,25 @@ export interface FundNetSummary {
   totalFunds: number;
 }
 
+export interface NetCompanyFundRow {
+  fund: number;
+  eeUnits: number | null;
+  veeUnits: number | null;
+  erUnits: number | null;
+  totalUnits: number;
+  unitPrice: number | null;
+  eeFunds: number | null;
+  veeFunds: number | null;
+  erFunds: number | null;
+  totalFunds: number;
+}
+
 export interface NetCompanyFundsResult {
   companyNumber: string;
   companyName: string;
   valuationDate: string;
-  rows: FundNetSummary[];
+  dateFinal: string | null;
+  rows: NetCompanyFundRow[];
   totalEEFunds: number;
   totalVEEFunds: number;
   totalERFunds: number;
@@ -493,7 +507,15 @@ export interface EmployeeFundsWithdrawalEstimate {
   companyName: string;
   employeeNumber: string;
   employeeName: string;
+  employeeId: number | null;
+  currency: string;
   withdrawalDate: string;
+  pensionStartDate?: string | null;
+  terminationDate?: string | null;
+  nationalId?: string | null;
+  category?: string | null;
+  companyAddress?: string | null;
+  companyPhone?: string | null;
   rows: WithdrawalRow[];
   charges: {
     ee: number;
@@ -512,6 +534,13 @@ export interface EmployeeFundsWithdrawalEstimate {
   availableEmployerFund: number;
 }
 
+export interface WithdrawalAmount {
+  fund: number;
+  employeeFund: number;
+  voluntaryEmployeeFund: number;
+  employerFund: number;
+}
+
 export interface EmployeeFundsWithdrawalResult {
   reference: string;
   message: string;
@@ -519,23 +548,22 @@ export interface EmployeeFundsWithdrawalResult {
 
 export interface TerminationFundRow {
   fund: number;
-  employeeFund: number;
-  voluntaryEmployeeFund: number;
-  employerFund: number;
+  eeUnits: number;
+  veeUnits: number;
+  erUnits: number;
+  terminatedErUnits: number;
+  totalUnits: number;
   unitPrice: number;
-  total: number;
 }
 
 export interface EmployeeTerminationEstimate {
   companyNumber: string;
   companyName: string;
+  employeeId: number | null;
   employeeNumber: string;
   employeeName: string;
+  currency: string;
+  paymentDate: string;
   terminationDate: string;
-  path: string;
   rows: TerminationFundRow[];
-  totalEmployeeFund: number;
-  totalVoluntaryEmployeeFund: number;
-  totalEmployerFund: number;
-  total: number;
 }

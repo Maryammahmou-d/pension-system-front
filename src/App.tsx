@@ -22,7 +22,6 @@ import AddTopUp from './pages/Invoicing & Top up Operations/AddTopUp';
 import BulkTopUp from './pages/Invoicing & Top up Operations/BulkTopUp';
 import UpdateUnitPrice from './pages/Financial/UnitPrices/UpdateUnitPrice';
 import NetCompanyFundsModifiedDate from './pages/Financial/Reports/NetCompanyFundsModifiedDate';
-import NetCompanyFundsPaymentDate from './pages/Financial/Reports/NetCompanyFundsPaymentDate';
 import NetEmployeeFunds from './pages/Financial/Reports/NetEmployeeFunds';
 import NetFunds from './pages/Financial/Reports/NetFunds';
 import NetUnits from './pages/Financial/Reports/NetUnits';
@@ -81,7 +80,6 @@ const PAGE_ELEMENTS: Record<PageKey, ReactElement> = {
   employeeFundsWithdrawal: <EmployeeFundsWithdrawal />,
   estimateEmployeeTermination: <EstimateEmployeeTermination />,
   netCompanyFundsModifiedDate: <NetCompanyFundsModifiedDate />,
-  netCompanyFundsPaymentDate: <NetCompanyFundsPaymentDate />,
   netEmployeeFunds: <NetEmployeeFunds />,
   netFunds: <NetFunds />,
   netUnits: <NetUnits />,

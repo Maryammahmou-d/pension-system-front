@@ -35,6 +35,7 @@ interface LinkedItem {
   label: string;
   icon: IconType;
   end?: boolean;
+  labelLines?: string[];
 }
 
 interface PlaceholderAction {
@@ -46,8 +47,40 @@ interface PlaceholderAction {
 type NavItem = LinkedItem | PlaceholderAction;
 
 /** Builds a nav entry whose path and role gate both come from `access.ts`. */
-const link = (page: PageKey, label: string, icon: IconType): LinkedItem =>
-  ({ kind: 'link', page, to: PAGE_ROUTES[page], label, icon });
+const link = (
+  page: PageKey,
+  label: string,
+  icon: IconType,
+  options?: { end?: boolean; labelLines?: string[] },
+): LinkedItem => ({
+  kind: 'link',
+  page,
+  to: PAGE_ROUTES[page],
+  label,
+  icon,
+  ...options,
+});
+
+function NavItemLabel({ label, labelLines }: { label: string; labelLines?: string[] }) {
+  const wrapStyle = {
+    whiteSpace: 'normal' as const,
+    lineHeight: 1.25,
+    flex: 1,
+    minWidth: 0,
+  };
+
+  if (labelLines?.length) {
+    return (
+      <span style={wrapStyle}>
+        {labelLines.map((line) => (
+          <span key={line} style={{ display: 'block' }}>{line}</span>
+        ))}
+      </span>
+    );
+  }
+
+  return <span style={wrapStyle}>{label}</span>;
+}
 
 /** Access Actions order — linked pages + placeholders for not-yet-built screens. */
 const ACTIONS_ITEMS: NavItem[] = [
@@ -86,8 +119,9 @@ const REPORTS_ITEMS: NavItem[] = [
   link('movementSummaryBetweenDates', 'Extract Movement Summary Between Dates', FileBarChart2),
   link('movementSummaryForDay', 'Extract Movement Summary for a day', FileBarChart2),
   link('companiesFunds', 'Extract Companies Funds', FileBarChart2),
-  link('netCompanyFundsModifiedDate', 'Net Company Funds - Modified Date', FileBarChart2),
-  link('netCompanyFundsPaymentDate', 'Net Company Funds - Payment Date', FileBarChart2),
+  link('netCompanyFundsModifiedDate', 'Net Company Funds - Modified Date', FileBarChart2, {
+    labelLines: ['Net Company Funds -', 'Modified Date'],
+  }),
   link('netEmployeeFunds', 'Net Employee Funds', FileBarChart2),
   link('netFunds', 'Net Funds', FileBarChart2),
   link('netUnits', 'Net Units', FileBarChart2),
@@ -242,14 +276,14 @@ export default function Layout() {
                             <span style={navIconWrap(false, isLight)}>
                               <Icon size={13} color={isLight ? 'rgba(107,2,125,0.4)' : 'var(--kaf-muted)'} />
                             </span>
-                            <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                            <span style={{ whiteSpace: 'normal', lineHeight: 1.25, flex: 1, minWidth: 0 }}>
                               {item.label}
                             </span>
                           </div>
                         );
                       }
 
-                      const { to, label, icon: Icon, end } = item;
+                      const { to, label, labelLines, icon: Icon, end } = item;
                       return (
                         <NavLink
                           key={to}
@@ -264,7 +298,7 @@ export default function Layout() {
                               <span style={navIconWrap(isActive, isLight)}>
                                 <Icon size={13} color={isActive ? '#fff' : isLight ? 'rgba(107,2,125,0.55)' : 'var(--kaf-muted)'} />
                               </span>
-                              {label}
+                              <NavItemLabel label={label} labelLines={labelLines} />
                             </>
                           )}
                         </NavLink>
@@ -318,14 +352,14 @@ export default function Layout() {
                           <span style={navIconWrap(false, isLight)}>
                             <Icon size={13} color={isLight ? 'rgba(107,2,125,0.4)' : 'var(--kaf-muted)'} />
                           </span>
-                          <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                          <span style={{ whiteSpace: 'normal', lineHeight: 1.25, flex: 1, minWidth: 0 }}>
                             {item.label}
                           </span>
                         </div>
                       );
                     }
 
-                    const { to, label, icon: Icon } = item;
+                    const { to, label, labelLines, icon: Icon } = item;
                     return (
                       <NavLink
                         key={to}
@@ -339,9 +373,7 @@ export default function Layout() {
                             <span style={navIconWrap(isActive, isLight)}>
                               <Icon size={13} color={isActive ? '#fff' : isLight ? 'rgba(107,2,125,0.55)' : 'var(--kaf-muted)'} />
                             </span>
-                            <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                              {label}
-                            </span>
+                            <NavItemLabel label={label} labelLines={labelLines} />
                           </>
                         )}
                       </NavLink>

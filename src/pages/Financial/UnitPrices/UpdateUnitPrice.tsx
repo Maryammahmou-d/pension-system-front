@@ -1,10 +1,10 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import type { FormEvent } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { TrendingUp, CheckCircle2, AlertCircle, RotateCcw } from 'lucide-react';
 import PageHeader from '../../../components/PageHeader';
 import { useAuth } from '../../../lib/auth';
-import { dateHelpers, lookupsApi, unitPricesApi } from '../../../lib/api';
+import { dateHelpers, unitPricesApi } from '../../../lib/api';
 import type { UnitPriceRow } from '../../../types';
 
 const FUNDS = [
@@ -33,29 +33,6 @@ export default function UpdateUnitPrice() {
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const { user } = useAuth();
-
-  useEffect(() => {
-    let cancelled = false;
-    void lookupsApi
-      .listUnitPrices()
-      .then((rows) => {
-        if (cancelled) return;
-        const row = rows.find((r) => r.priceDate === priceDate);
-        if (row) {
-          const next = { ...EMPTY };
-          for (const { key } of FUNDS) {
-            next[key] = String(row[key]);
-          }
-          setValues(next);
-        } else {
-          setValues({ ...EMPTY });
-        }
-      })
-      .catch(() => setValues({ ...EMPTY }));
-    return () => {
-      cancelled = true;
-    };
-  }, [priceDate]);
 
   const handleChange = (key: FundKey, value: string) => {
     setValues((prev) => ({ ...prev, [key]: value }));
