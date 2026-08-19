@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
 import { FileText, AlertCircle } from 'lucide-react';
 import PageHeader from '../../components/PageHeader';
-import { invoicesApi } from '../../lib/api';
+import { dateHelpers, invoicesApi } from '../../lib/api';
 import type { Invoice } from '../../types';
 
 const fmt2 = (v: number) =>
@@ -18,9 +18,9 @@ export default function UnSettledInvoices() {
     setLoading(true);
     setError(null);
     invoicesApi
-      .list()
+      .list('Pending')
       .then((all) => {
-        if (!cancelled) setRows(all.filter((inv) => inv.status === 'Unsettled'));
+        if (!cancelled) setRows(all);
       })
       .catch((err) => {
         if (!cancelled) setError(err instanceof Error ? err.message : 'Failed to load invoices.');
@@ -86,9 +86,9 @@ export default function UnSettledInvoices() {
                 >
                   <td style={tdStyle}>{inv.invoiceNumber}</td>
                   <td style={tdStyle}>{inv.companyNumber}</td>
-                  <td style={tdStyle}>{inv.invoiceDate}</td>
-                  <td style={tdStyle}>{inv.dateFrom}</td>
-                  <td style={tdStyle}>{inv.dateTo}</td>
+                  <td style={tdStyle}>{dateHelpers.formatDisplay(inv.invoiceDate)}</td>
+                  <td style={tdStyle}>{dateHelpers.formatDisplay(inv.dateFrom)}</td>
+                  <td style={tdStyle}>{dateHelpers.formatDisplay(inv.dateTo)}</td>
                   <td style={{ ...tdStyle, textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}>{fmt2(inv.egpAmount)}</td>
                   <td style={{ ...tdStyle, textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}>{fmt2(inv.usdAmount)}</td>
                   <td style={{ ...tdStyle, textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}>{fmt2(inv.eurAmount)}</td>
@@ -108,25 +108,6 @@ export default function UnSettledInvoices() {
                 </tr>
               ))}
             </tbody>
-            {rows.length > 0 && (
-              <tfoot>
-                <tr style={{ borderTop: '2px solid var(--kaf-border)', fontWeight: 600 }}>
-                  <td colSpan={5} style={{ ...tdStyle, color: 'var(--kaf-text-secondary)' }}>
-                    Page 1 of 1 &nbsp;·&nbsp; {rows.length} invoice{rows.length !== 1 ? 's' : ''}
-                  </td>
-                  <td style={{ ...tdStyle, textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}>
-                    {fmt2(rows.reduce((s, r) => s + r.egpAmount, 0))}
-                  </td>
-                  <td style={{ ...tdStyle, textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}>
-                    {fmt2(rows.reduce((s, r) => s + r.usdAmount, 0))}
-                  </td>
-                  <td style={{ ...tdStyle, textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}>
-                    {fmt2(rows.reduce((s, r) => s + r.eurAmount, 0))}
-                  </td>
-                  <td />
-                </tr>
-              </tfoot>
-            )}
           </table>
         )}
       </div>

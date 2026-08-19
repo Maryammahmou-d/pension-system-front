@@ -71,7 +71,7 @@ export interface PagedRecordsResponse<T> {
 
 // ── Rubix domain (Section 3) ────────────────────────────────────
 
-export type InvoiceStatus = 'Unsettled' | 'Paid' | 'Cancelled';
+export type InvoiceStatus = 'Pending' | 'Paid' | 'Cancelled';
 
 export interface CompanySummary {
   companyNumber: string;
@@ -310,6 +310,34 @@ export interface InvoiceEmployeeLine {
   status: InvoiceStatus;
 }
 
+export interface InvoiceCategorySummary {
+  category: number;
+  employeeCount: number;
+  currency: string;
+  employeeContribution: number;
+  veeContribution: number;
+  employerContribution: number;
+  totalContribution: number;
+  stampDuty: number;
+  supervisoryFees: number;
+  fraApprovalFees: number;
+  fraProvisionFees: number;
+  grandTotal: number;
+}
+
+export interface InvoiceDetails {
+  invoiceNumber: string;
+  companyNumber: string;
+  companyName: string;
+  invoiceDate: string;
+  dateFrom: string;
+  dateTo: string;
+  status: InvoiceStatus;
+  paymentDate: string | null;
+  currency: string;
+  categories: InvoiceCategorySummary[];
+}
+
 export interface CreateInvoiceRequest {
   companyNumber: string;
   year: number;
@@ -317,6 +345,7 @@ export interface CreateInvoiceRequest {
   dateFrom: string;
   dateTo: string;
   path?: string;
+  userName?: string;
 }
 
 export interface CreateInvoiceResult {
@@ -332,11 +361,13 @@ export interface SettleInvoiceRequest {
   paymentDate: string;
   /** Access UserSecurity: 1 Admin, 5 Tech bypass 7-day rule */
   userSecurityLevel?: number;
+  userName?: string;
 }
 
 export interface CancelInvoiceRequest {
   invoiceNumber: string;
   cancellationDate: string;
+  userName?: string;
 }
 
 export interface TopUpRequest {
@@ -347,12 +378,47 @@ export interface TopUpRequest {
   topUpVEE: number;
   topUpER: number;
   path?: string;
+  userName?: string;
 }
 
 export interface TopUpResult {
   employeeNumber: string;
+  employeeName: string;
+  companyNumber: string;
   topUpDate: string;
+  nationalId?: string | null;
+  category?: string | null;
+  pensionStartDate?: string | null;
+  currency?: string | null;
+  topUpEE: number;
+  topUpVEE: number;
+  topUpER: number;
   total: number;
+  chargesEe: number;
+  chargesVee: number;
+  chargesEr: number;
+  imcEe: number;
+  imcVee: number;
+  imcEr: number;
+  transactionalEe: number;
+  transactionalVee: number;
+  transactionalEr: number;
+  transactionalTotal: number;
+  totalEeValue: number;
+  totalVeeValue: number;
+  totalErValue: number;
+  funds: TopUpFundAllocation[];
+}
+
+export interface TopUpFundAllocation {
+  fund: number;
+  unitPrice: number;
+  eeValue: number;
+  veeValue: number;
+  erValue: number;
+  eeUnits: number;
+  veeUnits: number;
+  erUnits: number;
 }
 
 export interface BulkTopUpRow {
@@ -367,6 +433,7 @@ export interface BulkTopUpRequest {
   companyNumber: string;
   rows: BulkTopUpRow[];
   path?: string;
+  userName?: string;
 }
 
 export interface BulkTopUpRowResult {
@@ -374,6 +441,7 @@ export interface BulkTopUpRowResult {
   ok: boolean;
   message: string;
   total?: number;
+  report?: TopUpResult | null;
 }
 
 export interface BulkTopUpResult {
@@ -381,6 +449,7 @@ export interface BulkTopUpResult {
   succeeded: number;
   failed: number;
   rows: BulkTopUpRowResult[];
+  posted: TopUpResult[];
 }
 
 export interface FundNetSummary {

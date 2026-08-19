@@ -106,7 +106,7 @@ let _invoices: Invoice[] = [
     invoiceDate: todayIso(),
     dateFrom: '2026-06-01',
     dateTo: '2026-06-30',
-    status: 'Unsettled',
+    status: 'Pending',
     paymentDate: null,
     egpAmount: 13100,
     usdAmount: 265,
@@ -120,7 +120,7 @@ let _invoices: Invoice[] = [
     invoiceDate: todayIso(),
     dateFrom: '2026-06-01',
     dateTo: '2026-06-30',
-    status: 'Unsettled',
+    status: 'Pending',
     paymentDate: null,
     egpAmount: 6200,
     usdAmount: 125,
@@ -133,27 +133,27 @@ let _invoiceLines: InvoiceEmployeeLine[] = [
   {
     invoiceNumber: 'I000001', employeeNumber: 'E1001', fullName: 'Ahmed Hassan',
     companyNumber: 'C001', currency: 'EGP', employeeContribution: 1680, veeContribution: 420,
-    employerContribution: 2100, totalContribution: 4200, grandTotal: 4300, status: 'Unsettled',
+    employerContribution: 2100, totalContribution: 4200, grandTotal: 4300, status: 'Pending',
   },
   {
     invoiceNumber: 'I000001', employeeNumber: 'E1002', fullName: 'Sara Mahmoud',
     companyNumber: 'C001', currency: 'EGP', employeeContribution: 1520, veeContribution: 380,
-    employerContribution: 1900, totalContribution: 3800, grandTotal: 3900, status: 'Unsettled',
+    employerContribution: 1900, totalContribution: 3800, grandTotal: 3900, status: 'Pending',
   },
   {
     invoiceNumber: 'I000001', employeeNumber: 'E1003', fullName: 'Omar Farouk',
     companyNumber: 'C001', currency: 'EGP', employeeContribution: 2040, veeContribution: 510,
-    employerContribution: 2550, totalContribution: 5100, grandTotal: 5200, status: 'Unsettled',
+    employerContribution: 2550, totalContribution: 5100, grandTotal: 5200, status: 'Pending',
   },
   {
     invoiceNumber: 'I000002', employeeNumber: 'E2001', fullName: 'Mona Ali',
     companyNumber: 'C002', currency: 'EGP', employeeContribution: 1160, veeContribution: 290,
-    employerContribution: 1450, totalContribution: 2900, grandTotal: 3000, status: 'Unsettled',
+    employerContribution: 1450, totalContribution: 2900, grandTotal: 3000, status: 'Pending',
   },
   {
     invoiceNumber: 'I000002', employeeNumber: 'E2002', fullName: 'Youssef Nabil',
     companyNumber: 'C002', currency: 'EGP', employeeContribution: 1320, veeContribution: 330,
-    employerContribution: 1650, totalContribution: 3300, grandTotal: 3400, status: 'Unsettled',
+    employerContribution: 1650, totalContribution: 3300, grandTotal: 3400, status: 'Pending',
   },
 ];
 
@@ -244,7 +244,7 @@ export const invoicesApi = {
         employerContribution: er,
         totalContribution: total,
         grandTotal: Math.round(total * 1.025),
-        status: 'Unsettled',
+        status: 'Pending',
       };
     });
 
@@ -255,7 +255,7 @@ export const invoicesApi = {
       invoiceDate: todayIso(),
       dateFrom: req.dateFrom,
       dateTo: req.dateTo,
-      status: 'Unsettled',
+      status: 'Pending',
       paymentDate: null,
       egpAmount: egp,
       usdAmount: Math.round((egp / 49.5) * 100) / 100,
@@ -279,7 +279,7 @@ export const invoicesApi = {
     await delay(350);
     const inv = _invoices.find((i) => i.invoiceNumber === req.invoiceNumber);
     if (!inv) throw new Error('Invoice not found.');
-    if (inv.status !== 'Unsettled') throw new Error(`Invoice is already ${inv.status}.`);
+    if (inv.status !== 'Pending') throw new Error(`Invoice is already ${inv.status}.`);
 
     assertUnitPrice(req.paymentDate);
 
@@ -346,8 +346,27 @@ export const topUpsApi = {
 
     const result: TopUpResult = {
       employeeNumber: req.employeeNumber,
+      employeeName: emp.fullName,
+      companyNumber: req.companyNumber,
       topUpDate: req.topUpDate,
+      topUpEE: Number(req.topUpEE) || 0,
+      topUpVEE: Number(req.topUpVEE) || 0,
+      topUpER: Number(req.topUpER) || 0,
       total,
+      chargesEe: 0,
+      chargesVee: 0,
+      chargesEr: 0,
+      imcEe: 0,
+      imcVee: 0,
+      imcEr: 0,
+      transactionalEe: Number(req.topUpEE) || 0,
+      transactionalVee: Number(req.topUpVEE) || 0,
+      transactionalEr: Number(req.topUpER) || 0,
+      transactionalTotal: total,
+      totalEeValue: total,
+      totalVeeValue: 0,
+      totalErValue: 0,
+      funds: [],
     };
     _topUpLog = [..._topUpLog, result];
     return result;
@@ -356,6 +375,7 @@ export const topUpsApi = {
   bulk: async (req: BulkTopUpRequest): Promise<BulkTopUpResult> => {
     await delay(400);
     const rows: BulkTopUpRowResult[] = [];
+    const posted: TopUpResult[] = [];
     let succeeded = 0;
 
     for (const row of req.rows) {
@@ -391,16 +411,38 @@ export const topUpsApi = {
           });
           continue;
         }
-        _topUpLog.push({
+        const result: TopUpResult = {
           employeeNumber: row.employeeNumber,
+          employeeName: emp.fullName,
+          companyNumber: req.companyNumber,
           topUpDate: row.unitPriceDate,
+          topUpEE: Number(row.ee) || 0,
+          topUpVEE: Number(row.vee) || 0,
+          topUpER: Number(row.er) || 0,
           total,
-        });
+          chargesEe: 0,
+          chargesVee: 0,
+          chargesEr: 0,
+          imcEe: 0,
+          imcVee: 0,
+          imcEr: 0,
+          transactionalEe: Number(row.ee) || 0,
+          transactionalVee: Number(row.vee) || 0,
+          transactionalEr: Number(row.er) || 0,
+          transactionalTotal: total,
+          totalEeValue: total,
+          totalVeeValue: 0,
+          totalErValue: 0,
+          funds: [],
+        };
+        _topUpLog.push(result);
+        posted.push(result);
         rows.push({
           employeeNumber: row.employeeNumber,
           ok: true,
-          message: 'Top-up created',
+          message: 'Done',
           total,
+          report: result,
         });
         succeeded += 1;
       } catch (err) {
@@ -417,6 +459,7 @@ export const topUpsApi = {
       succeeded,
       failed: rows.length - succeeded,
       rows,
+      posted,
     };
   },
 

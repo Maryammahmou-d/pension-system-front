@@ -8,7 +8,7 @@ import { useAuth } from '../../lib/auth';
 import type { Invoice } from '../../types';
 
 export default function SettleInvoice() {
-  const { securityLevel } = useAuth();
+  const { securityLevel, user } = useAuth();
   const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [invoiceNumber, setInvoiceNumber] = useState('');
   const [paymentDate, setPaymentDate] = useState(dateHelpers.todayIso());
@@ -17,7 +17,7 @@ export default function SettleInvoice() {
   const [success, setSuccess] = useState<string | null>(null);
 
   const refresh = useCallback(async () => {
-    const list = await invoicesApi.list('Unsettled');
+    const list = await invoicesApi.list('Pending');
     setInvoices(list);
   }, []);
 
@@ -53,6 +53,7 @@ export default function SettleInvoice() {
         invoiceNumber,
         paymentDate,
         userSecurityLevel: securityLevel(),
+        userName: user?.username,
       });
       setSuccess(`Invoice ${inv.invoiceNumber} settled successfully.`);
       setInvoiceNumber('');

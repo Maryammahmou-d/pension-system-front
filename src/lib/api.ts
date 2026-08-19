@@ -211,9 +211,9 @@ export {
 export { vestingRulesApi } from './vestingRulesApi';
 export { monthlyChargesApi } from './monthlyChargesApi';
 export { employeeFundsWithdrawalApi, employeeTerminationApi } from './employeeFundsApi';
+export { invoicesApi } from './invoicesApi';
+export { topUpsApi } from './topUpsApi';
 export {
-  invoicesApi,
-  topUpsApi,
   lookupsApi,
   reportsApi,
   dateHelpers,

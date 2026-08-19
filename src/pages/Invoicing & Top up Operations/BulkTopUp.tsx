@@ -1,13 +1,15 @@
 import { useEffect, useRef, useState } from 'react';
 import type { FormEvent } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Upload, CheckCircle2, AlertCircle } from 'lucide-react';
+import { Upload, CheckCircle2, AlertCircle, Download } from 'lucide-react';
 import ExcelJS from 'exceljs';
 import PageHeader from '../../components/PageHeader';
 import { topUpsApi } from '../../lib/api';
+import { useAuth } from '../../lib/auth';
 import { companiesApi } from '../../lib/companiesApi';
 import { extractApiError } from '../../lib/httpClient';
-import { mockExportContents, saveFileWithPicker, suggestedNameFromPath } from '../../lib/saveFile';
+import { requestSaveLocation, suggestedNameFromPath, writeSaveLocation } from '../../lib/saveFile';
+import { buildBulkTopUpWorkbook } from '../../lib/topUpPdf';
 import type { BulkTopUpResult, BulkTopUpRow, Company } from '../../types';
 
 function cellText(value: ExcelJS.CellValue): string {
@@ -62,6 +64,15 @@ function parseDateCell(raw: string): string {
   return raw;
 }
 
+function employeeNumberText(value: ExcelJS.CellValue): string {
+  if (typeof value === 'number' && Number.isFinite(value)) {
+    return String(Math.trunc(value));
+  }
+  const text = cellText(value);
+  if (/^\d+\.0+$/.test(text)) return text.slice(0, text.indexOf('.'));
+  return text;
+}
+
 async function parseTopUpWorkbook(file: File): Promise<BulkTopUpRow[]> {
   const buf = await file.arrayBuffer();
   const wb = new ExcelJS.Workbook();
@@ -97,7 +108,7 @@ async function parseTopUpWorkbook(file: File): Promise<BulkTopUpRow[]> {
   const rows: BulkTopUpRow[] = [];
   sheet.eachRow({ includeEmpty: false }, (row, rowNumber) => {
     if (rowNumber === 1) return;
-    const employeeNumber = cellText(row.getCell(colEmployee).value);
+    const employeeNumber = employeeNumberText(row.getCell(colEmployee).value);
     if (!employeeNumber) return;
     const ee = colEE != null ? Number(cellText(row.getCell(colEE).value) || 0) : 0;
     const er = colER != null ? Number(cellText(row.getCell(colER).value) || 0) : 0;
@@ -116,7 +127,39 @@ async function parseTopUpWorkbook(file: File): Promise<BulkTopUpRow[]> {
   return rows;
 }
 
+async function buildBulkTopUpTemplate(): Promise<Blob> {
+  const wb = new ExcelJS.Workbook();
+  const sheet = wb.addWorksheet('TopUp');
+  sheet.columns = [
+    { header: 'Employee_Number', key: 'employeeNumber', width: 20 },
+    { header: 'EE', key: 'ee', width: 14 },
+    { header: 'ER', key: 'er', width: 14 },
+    { header: 'VEE', key: 'vee', width: 14 },
+    { header: 'Unit_Price_Date', key: 'unitPriceDate', width: 18 },
+  ];
+  const header = sheet.getRow(1);
+  header.font = { bold: true };
+  sheet.getColumn(2).numFmt = '#,##0.00';
+  sheet.getColumn(3).numFmt = '#,##0.00';
+  sheet.getColumn(4).numFmt = '#,##0.00';
+  sheet.getColumn(5).numFmt = 'yyyy-mm-dd';
+  const sample = sheet.addRow({
+    employeeNumber: 'SAMPLE001',
+    ee: 1000,
+    er: 500,
+    vee: 0,
+    unitPriceDate: new Date(Date.UTC(2026, 7, 18)),
+  });
+  sample.font = { italic: true, color: { argb: 'FF666666' } };
+  sample.getCell(1).note = 'Example only. Delete this row and enter a real Employee_Number (the value shown in Add Top Up, not 1 or SAMPLE001).';
+  const buf = await wb.xlsx.writeBuffer();
+  return new Blob([buf], {
+    type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+  });
+}
+
 export default function BulkTopUp() {
+  const { user } = useAuth();
   const fileRef = useRef<HTMLInputElement>(null);
   const [companies, setCompanies] = useState<Company[]>([]);
   const [companiesLoading, setCompaniesLoading] = useState(false);
@@ -159,35 +202,65 @@ export default function BulkTopUp() {
 
   const onFileSelected = async (file: File | null) => {
     if (!file) return;
-    setLoading(true);
     setError(null);
     setResult(null);
+    const location = await requestSaveLocation({
+      suggestedName: suggestedNameFromPath(path, `TopUp_${companyNumber}.xlsx`),
+      mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    });
+    if (location.mode === 'cancelled') {
+      if (fileRef.current) fileRef.current.value = '';
+      return;
+    }
+    setLoading(true);
     try {
-      const rows = await parseTopUpWorkbook(file);
+      const parsed = await parseTopUpWorkbook(file);
       const res = await topUpsApi.bulk({
         companyNumber,
-        rows,
+        rows: parsed,
         path: path || undefined,
+        userName: user?.username,
       });
-      const saved = await saveFileWithPicker({
-        suggestedName: suggestedNameFromPath(path, `bulk-top-up-${companyNumber}.txt`),
-        contents: mockExportContents('Bulk Top Up', {
-          companyNumber,
-          processed: res.processed,
-          succeeded: res.succeeded,
-          failed: res.failed,
-        }),
-      });
-      if (saved === 'cancelled') {
-        setResult(res);
-        return;
+      const rows = res.rows.length > 0
+        ? res.rows
+        : parsed.map((row) => ({
+            employeeNumber: row.employeeNumber,
+            ok: false,
+            message: 'Employee not found. Use the Employee_Number from Add Top Up.',
+            total: row.ee + row.er + row.vee,
+          }));
+      const posted = res.posted ?? res.rows.map((row) => row.report).filter((row): row is NonNullable<typeof row> => Boolean(row));
+      if (posted.length > 0) {
+        const workbook = await buildBulkTopUpWorkbook(companyNumber, posted);
+        await writeSaveLocation(location, workbook);
       }
-      setResult(res);
+      setResult({
+        ...res,
+        processed: rows.length,
+        succeeded: posted.length,
+        failed: rows.length - posted.length,
+        rows,
+        posted,
+      });
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Bulk top-up failed');
     } finally {
       setLoading(false);
       if (fileRef.current) fileRef.current.value = '';
+    }
+  };
+
+  const downloadTemplate = async () => {
+    setError(null);
+    try {
+      const location = await requestSaveLocation({
+        suggestedName: suggestedNameFromPath(path, 'TopUp_Employees_Template.xlsx'),
+        mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      });
+      if (location.mode === 'cancelled') return;
+      await writeSaveLocation(location, await buildBulkTopUpTemplate());
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Could not download template.');
     }
   };
 
@@ -249,6 +322,10 @@ export default function BulkTopUp() {
               onChange={(e) => void onFileSelected(e.target.files?.[0] ?? null)}
             />
 
+            <button type="button" className="kaf-btn-ghost" onClick={() => void downloadTemplate()} disabled={loading} style={{ width: '100%' }}>
+              <Download size={14} /> Download Excel Template
+            </button>
+
             <button type="submit" className="kaf-btn" disabled={loading} style={{ width: '100%' }}>
               {loading
                 ? <><span className="kaf-spinner" style={{ display: 'inline-block' }} /> Processing…</>
@@ -267,11 +344,13 @@ export default function BulkTopUp() {
             style={{ marginTop: 16, maxWidth: 720 }}
           >
             <div
-              className={`kaf-callout ${result.failed === 0 ? 'ok' : 'error'}`}
+              className={`kaf-callout ${result.succeeded > 0 && result.failed === 0 ? 'ok' : 'error'}`}
               style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12 }}
             >
               <CheckCircle2 size={16} />
-              Processed {result.processed}: {result.succeeded} succeeded, {result.failed} failed.
+              {result.succeeded > 0
+                ? `Processed ${result.processed}: ${result.succeeded} succeeded, ${result.failed} failed. Top-Up Transactions Completed Successfully. Data exported to Excel.`
+                : `No top-ups were posted. ${result.rows[0]?.message ?? 'Check Employee_Number and amounts.'}`}
             </div>
             <div className="kaf-card" style={{ overflow: 'hidden' }}>
               <table className="kaf-table" style={{ width: '100%' }}>

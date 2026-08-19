@@ -17,7 +17,7 @@ const FUNDS = [
   { key: 'fund7', label: 'Fund7', required: true },
   { key: 'fund8', label: 'Fund8', required: true },
   { key: 'fund9', label: 'Fund9', required: true },
-  { key: 'fund10', label: 'Fund10', required: false },
+  { key: 'fund10', label: 'Fund10', required: true },
 ] as const;
 
 type FundKey = typeof FUNDS[number]['key'];

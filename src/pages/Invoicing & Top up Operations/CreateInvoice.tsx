@@ -4,9 +4,11 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { FilePlus2, CheckCircle2, AlertCircle } from 'lucide-react';
 import PageHeader from '../../components/PageHeader';
 import { dateHelpers, invoicesApi } from '../../lib/api';
+import { useAuth } from '../../lib/auth';
 import { companiesApi } from '../../lib/companiesApi';
 import { extractApiError } from '../../lib/httpClient';
-import { mockExportContents, saveFileWithPicker, suggestedNameFromPath } from '../../lib/saveFile';
+import { buildInvoicePdf } from '../../lib/invoicePdf';
+import { requestSaveLocation, suggestedNameFromPath, writeSaveLocation } from '../../lib/saveFile';
 import type { Company, CreateInvoiceResult } from '../../types';
 
 const MONTHS = [
@@ -17,6 +19,7 @@ const MONTHS = [
 ];
 
 export default function CreateInvoice() {
+  const { user } = useAuth();
   const now = new Date();
   const [companies, setCompanies] = useState<Company[]>([]);
   const [companiesLoading, setCompaniesLoading] = useState(false);
@@ -61,6 +64,14 @@ export default function CreateInvoice() {
 
     setLoading(true);
     try {
+      const location = await requestSaveLocation({
+        suggestedName: suggestedNameFromPath(path, `Invoice_${companyNumber}_${month}_${year}.pdf`),
+        mimeType: 'application/pdf',
+      });
+      if (location.mode === 'cancelled') {
+        return;
+      }
+
       const res = await invoicesApi.create({
         companyNumber,
         year,
@@ -68,20 +79,11 @@ export default function CreateInvoice() {
         dateFrom: range.dateFrom,
         dateTo: range.dateTo,
         path: path || undefined,
+        userName: user?.username,
       });
-      const saved = await saveFileWithPicker({
-        suggestedName: suggestedNameFromPath(path, `${res.invoiceNumber}.txt`),
-        contents: mockExportContents('Create Invoice', {
-          invoiceNumber: res.invoiceNumber,
-          companyNumber,
-          year,
-          month,
-        }),
-      });
-      if (saved === 'cancelled') {
-        setResult(res);
-        return;
-      }
+      const details = await invoicesApi.details(res.invoiceNumber);
+      const pdf = await buildInvoicePdf(details);
+      await writeSaveLocation(location, pdf);
       setResult(res);
       setCompanyNumber('');
       setPath('');

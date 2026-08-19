@@ -4,9 +4,11 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { FileX2, CheckCircle2, AlertCircle, X } from 'lucide-react';
 import PageHeader from '../../components/PageHeader';
 import { dateHelpers, invoicesApi } from '../../lib/api';
+import { useAuth } from '../../lib/auth';
 import type { Invoice } from '../../types';
 
 export default function CancelInvoice() {
+  const { user } = useAuth();
   const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [invoiceNumber, setInvoiceNumber] = useState('');
   const [cancellationDate, setCancellationDate] = useState(dateHelpers.todayIso());
@@ -15,7 +17,7 @@ export default function CancelInvoice() {
   const [success, setSuccess] = useState<string | null>(null);
 
   const refresh = useCallback(async () => {
-    const list = await invoicesApi.list('Unsettled');
+    const list = await invoicesApi.list('Pending');
     setInvoices(list);
   }, []);
 
@@ -50,8 +52,9 @@ export default function CancelInvoice() {
       const inv = await invoicesApi.cancel({
         invoiceNumber,
         cancellationDate,
+        userName: user?.username,
       });
-      setSuccess(`Invoice ${inv.invoiceNumber} cancelled.`);
+      setSuccess('Done');
       setInvoiceNumber('');
       setCancellationDate(dateHelpers.todayIso());
       await refresh();
@@ -79,7 +82,7 @@ export default function CancelInvoice() {
         />
       </motion.div>
 
-      <div className="kaf-card" style={{ padding: '22px 24px', maxWidth: 820 }}>
+      <div className="kaf-card" style={{ padding: '22px 24px', maxWidth: 920 }}>
         <form onSubmit={handleSubmit}>
           <div style={{ display: 'grid', gridTemplateColumns: '1.4fr 1fr 1fr', gap: 14, marginBottom: 14 }}>
             <Field label="Invoice Number" required>
@@ -114,7 +117,7 @@ export default function CancelInvoice() {
           </div>
 
           <div style={{ marginBottom: 14, maxWidth: 240 }}>
-            <Field label="Cancellation Date" required>
+            <Field label="Payment Date" required>
               <input
                 className="kaf-input"
                 type="date"
@@ -127,9 +130,10 @@ export default function CancelInvoice() {
 
           <div style={{
             display: 'grid',
-            gridTemplateColumns: 'repeat(3, 1fr)',
+            gridTemplateColumns: 'repeat(5, 1fr)',
             gap: 12,
             marginBottom: 18,
+            paddingTop: 8,
           }}>
             <Field label="Company Number">
               <input className="kaf-input" readOnly value={selected?.companyNumber ?? ''} />
@@ -145,7 +149,21 @@ export default function CancelInvoice() {
               <input
                 className="kaf-input"
                 readOnly
-                value={selected ? Math.round(selected.egpAmount).toLocaleString() : ''}
+                value={selected ? selected.egpAmount.toLocaleString(undefined, { minimumFractionDigits: 2 }) : ''}
+              />
+            </Field>
+            <Field label="USD Amount">
+              <input
+                className="kaf-input"
+                readOnly
+                value={selected ? selected.usdAmount.toLocaleString(undefined, { minimumFractionDigits: 2 }) : ''}
+              />
+            </Field>
+            <Field label="EUR Amount">
+              <input
+                className="kaf-input"
+                readOnly
+                value={selected ? selected.eurAmount.toLocaleString(undefined, { minimumFractionDigits: 2 }) : ''}
               />
             </Field>
           </div>
@@ -176,7 +194,7 @@ export default function CancelInvoice() {
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0 }}
             className="kaf-callout ok"
-            style={{ marginTop: 16, maxWidth: 820, display: 'flex', alignItems: 'center', gap: 10 }}
+            style={{ marginTop: 16, maxWidth: 920, display: 'flex', alignItems: 'center', gap: 10 }}
           >
             <CheckCircle2 size={16} /> {success}
           </motion.div>

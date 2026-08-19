@@ -18,10 +18,27 @@ interface BackendUnitPrice {
   userName: string | null;
 }
 
+function calendarDate(iso: string | null | undefined): string {
+  if (!iso) return '';
+  const dateOnly = iso.match(/^(\d{4}-\d{2}-\d{2})/);
+  if (dateOnly && !iso.includes('T')) return dateOnly[1];
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return iso.slice(0, 10);
+  const parts = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Asia/Kuwait',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).formatToParts(d);
+  const y = parts.find((p) => p.type === 'year')?.value;
+  const m = parts.find((p) => p.type === 'month')?.value;
+  const day = parts.find((p) => p.type === 'day')?.value;
+  return y && m && day ? `${y}-${m}-${day}` : iso.slice(0, 10);
+}
+
 function mapRow(r: BackendUnitPrice): UnitPriceRow {
-  const iso = r.priceDate?.slice(0, 10) ?? '';
   return {
-    priceDate: iso,
+    priceDate: calendarDate(r.priceDate),
     fund1: r.fund1,
     fund2: r.fund2,
     fund3: r.fund3,
@@ -48,9 +65,10 @@ export const unitPricesApi = {
 
   save: async (userId: number, row: UnitPriceRow): Promise<UnitPriceRow> => {
     try {
-      const payload = { ...row, priceDate: `${row.priceDate}T00:00:00+03:00` };
-      const { data } = await http.post<BackendUnitPrice>(`/unit-price/${userId}`, payload);
-      return mapRow(data);
+      const payload = { ...row, priceDate: row.priceDate };
+      const { data } = await http.post<BackendUnitPrice | BackendUnitPrice[]>(`/unit-price/${userId}`, payload);
+      const saved = Array.isArray(data) ? data[0] : data;
+      return mapRow(saved);
     } catch (err) {
       throw new Error(extractApiError(err, 'Failed to save unit prices.'));
     }

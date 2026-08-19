@@ -4,13 +4,16 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Wallet, CheckCircle2, AlertCircle } from 'lucide-react';
 import PageHeader from '../../components/PageHeader';
 import { dateHelpers, topUpsApi } from '../../lib/api';
+import { useAuth } from '../../lib/auth';
 import { companiesApi } from '../../lib/companiesApi';
 import { employeesApi } from '../../lib/employeesApi';
 import { extractApiError } from '../../lib/httpClient';
-import { mockExportContents, saveFileWithPicker, suggestedNameFromPath } from '../../lib/saveFile';
+import { requestSaveLocation, suggestedNameFromPath, writeSaveLocation } from '../../lib/saveFile';
+import { buildTopUpPdf, suggestedTopUpPdfName } from '../../lib/topUpPdf';
 import type { Company, Employee, TopUpResult } from '../../types';
 
 export default function AddTopUp() {
+  const { user } = useAuth();
   const [companies, setCompanies] = useState<Company[]>([]);
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [companiesLoading, setCompaniesLoading] = useState(false);
@@ -96,9 +99,27 @@ export default function AddTopUp() {
       setError('All fields are required');
       return;
     }
+    if (total <= 0) {
+      setError('Total Top Up should be > 0');
+      return;
+    }
 
     setLoading(true);
     try {
+      const location = await requestSaveLocation({
+        suggestedName: suggestedNameFromPath(
+          path,
+          suggestedTopUpPdfName({
+            employeeNumber,
+            topUpDate,
+          }),
+        ),
+        mimeType: 'application/pdf',
+      });
+      if (location.mode === 'cancelled') {
+        return;
+      }
+
       const res = await topUpsApi.create({
         companyNumber,
         employeeNumber,
@@ -107,15 +128,9 @@ export default function AddTopUp() {
         topUpVEE: Number(topUpVEE) || 0,
         topUpER: Number(topUpER) || 0,
         path: path || undefined,
+        userName: user?.username,
       });
-      const saved = await saveFileWithPicker({
-        suggestedName: suggestedNameFromPath(path, `top-up-${employeeNumber}.txt`),
-        contents: mockExportContents('Add Top Up', { companyNumber, employeeNumber, topUpDate }),
-      });
-      if (saved === 'cancelled') {
-        setResult(res);
-        return;
-      }
+      await writeSaveLocation(location, await buildTopUpPdf(res));
       setResult(res);
       setCompanyNumber('');
       setEmployeeNumber('');
@@ -136,8 +151,8 @@ export default function AddTopUp() {
       <motion.div initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.28 }}>
         <PageHeader
           icon={Wallet}
-          title="Top Up"
-          subtitle="Add a voluntary / employer / employee top-up for a single member."
+          title="Add Top Up"
+          subtitle="Add a voluntary employee / VEE / employer top-up for a single member."
         />
       </motion.div>
 
@@ -267,7 +282,7 @@ export default function AddTopUp() {
             style={{ marginTop: 16, maxWidth: 560, display: 'flex', alignItems: 'center', gap: 10 }}
           >
             <CheckCircle2 size={16} />
-            Top-up recorded for {result.employeeNumber} · total {result.total.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+            Top-up recorded for {result.employeeNumber} · total {result.total.toLocaleString(undefined, { minimumFractionDigits: 2 })}. Done.
           </motion.div>
         )}
       </AnimatePresence>
