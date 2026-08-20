@@ -386,6 +386,10 @@ export interface TopUpResult {
   employeeName: string;
   companyNumber: string;
   topUpDate: string;
+  modifiedDate?: string | null;
+  transactionId?: number | null;
+  serial?: number | null;
+  employeeId?: number | null;
   nationalId?: string | null;
   category?: string | null;
   pensionStartDate?: string | null;

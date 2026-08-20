@@ -43,6 +43,16 @@ export function suggestedTopUpPdfName(report: Pick<TopUpResult, 'employeeNumber'
   return `TopUp_${report.employeeNumber}_${year ?? ''}_${month ?? ''}_${day ?? ''}.pdf`;
 }
 
+/** Access bulk naming: TopUp_{Employee_Number}.pdf (no date suffix). */
+export function bulkTopUpPdfName(employeeNumber: string): string {
+  return `TopUp_${employeeNumber}.pdf`;
+}
+
+/** Access bulk Excel naming: TopUp_{Company_Number}.xlsx */
+export function bulkTopUpExcelName(companyNumber: string): string {
+  return `TopUp_${companyNumber}.xlsx`;
+}
+
 function emptyFund(fund: number): TopUpFundAllocation {
   return {
     fund,
@@ -163,7 +173,7 @@ function page1(report: TopUpResult, logoSrc: string): string {
         <div class="info">
           ${infoRow('For:', report.employeeName ?? '')}
           ${infoRow('National ID:', report.nationalId ?? '')}
-          ${infoRow('Contract Number:', report.employeeNumber ?? '')}
+          ${infoRow('Contract Number:', report.companyNumber ?? '')}
           ${infoRow('Category:', report.category ?? '')}
           ${infoRow('Pension Start Date:', fmtAccessDate(report.pensionStartDate))}
           ${infoRow('Top Up Date:', fmtAccessDate(report.topUpDate))}
@@ -229,7 +239,7 @@ const PAGE_CSS = `
     box-sizing: border-box;
     background: #fff;
     color: #111;
-    font-family: Arial, "Segoe UI", Tahoma, sans-serif;
+    font-family: Arial, Helvetica, sans-serif;
     position: relative;
   }
   .report-body {
@@ -242,53 +252,53 @@ const PAGE_CSS = `
     position: absolute;
     left: 0;
     top: 0;
-    width: 50px;
-    height: 50px;
+    width: 54px;
+    height: 54px;
     object-fit: contain;
   }
   .addr, .phone {
     position: absolute;
     left: 0;
-    font-size: 11px;
+    font-size: 13px;
   }
-  .addr { top: 56px; }
-  .phone { top: 76px; }
+  .addr { top: 58px; }
+  .phone { top: 78px; }
   .title {
     position: absolute;
     left: 0;
     right: 0;
-    top: 8px;
+    top: 6px;
     text-align: center;
-    font-size: 22px;
+    font-size: 26px;
     font-weight: 700;
   }
   .date-lab, .date-val {
     position: absolute;
     top: 8px;
-    font-size: 11px;
+    font-size: 13px;
   }
-  .date-lab { right: 118px; }
-  .date-val { right: 0; width: 110px; text-align: right; }
+  .date-lab { right: 128px; }
+  .date-val { right: 0; width: 120px; text-align: right; }
   .info {
     position: absolute;
     right: 0;
     top: 110px;
-    width: 310px;
+    width: 340px;
   }
   .info-row {
     display: flex;
     justify-content: flex-end;
     gap: 10px;
-    margin-bottom: 6px;
-    font-size: 11px;
+    margin-bottom: 7px;
+    font-size: 13px;
   }
   .info-lab { font-weight: 700; white-space: nowrap; }
-  .info-val { min-width: 150px; text-align: left; }
+  .info-val { min-width: 160px; text-align: left; }
   .client {
     position: absolute;
     left: 0;
-    top: 320px;
-    width: 420px;
+    top: 330px;
+    width: 440px;
   }
   .client-head {
     display: flex;
@@ -297,24 +307,24 @@ const PAGE_CSS = `
     margin-bottom: 10px;
   }
   .currency {
-    font-size: 11px;
+    font-size: 13px;
     font-weight: 700;
-    width: 120px;
+    width: 130px;
     text-align: center;
   }
   .section-title {
-    font-size: 14px;
+    font-size: 16px;
     font-weight: 700;
     margin: 0 0 10px;
   }
   .sum-row {
     display: grid;
-    grid-template-columns: 1fr 120px;
+    grid-template-columns: 1fr 130px;
     gap: 10px;
     align-items: center;
-    margin-bottom: 5px;
+    margin-bottom: 6px;
   }
-  .sum-lab { font-size: 11px; font-weight: 700; }
+  .sum-lab { font-size: 13px; font-weight: 700; }
   .sum-line {
     border-top: 1px solid #111;
     margin: 8px 0 8px 0;
@@ -323,27 +333,27 @@ const PAGE_CSS = `
     border: 1px solid #8a8a8a;
     background: #fff;
     text-align: right;
-    padding: 3px 6px;
-    font-size: 11px;
-    min-height: 18px;
+    padding: 4px 7px;
+    font-size: 13px;
+    min-height: 22px;
     box-sizing: border-box;
   }
   .fund-table {
     width: 100%;
     border-collapse: separate;
-    border-spacing: 8px 5px;
+    border-spacing: 8px 6px;
   }
   .fund-table th {
-    font-size: 11px;
+    font-size: 13px;
     font-weight: 700;
     text-align: center;
   }
   .fund-table td { vertical-align: middle; }
   .fund-table .lab {
-    font-size: 11px;
+    font-size: 13px;
     font-weight: 700;
     white-space: nowrap;
-    width: 170px;
+    width: 180px;
   }
   .total-row td { padding-top: 8px; }
 `;
@@ -387,35 +397,64 @@ export async function buildTopUpPdf(report: TopUpResult): Promise<Blob> {
   }
 }
 
+function dateToExcelSerial(iso: string | null | undefined): number | '' {
+  if (!iso) return '';
+  const [year, month, day] = iso.split('-').map(Number);
+  if (!year || !month || !day) return '';
+  const utc = Date.UTC(year, month - 1, day);
+  const epoch = Date.UTC(1899, 11, 30);
+  return Math.round((utc - epoch) / 86400000);
+}
+
+function fundOf(report: TopUpResult, fund: number): TopUpFundAllocation {
+  return (report.funds ?? []).find((row) => row.fund === fund) ?? emptyFund(fund);
+}
+
+/**
+ * Access TopUpDataExport shape (TempTopupTransactions): 61 columns, no header row.
+ * Company_Number / Employee_Number left blank to match Access reference exports.
+ */
 export async function buildBulkTopUpWorkbook(_companyNumber: string, posted: TopUpResult[]): Promise<Blob> {
   const wb = new ExcelJS.Workbook();
   const sheet = wb.addWorksheet('TopUp');
-  sheet.addRow([
-    'Employee_Number',
-    'Company_Number',
-    'Payment_Date',
-    'TopUp_EE',
-    'TopUp_VEE',
-    'TopUp_ER',
-    'Transactional_EE_Value',
-    'Transactional_VEE_Value',
-    'Transactional_ER_Value',
-    'Transactional_Total_Value',
-  ]);
+
   for (const row of posted) {
-    sheet.addRow([
-      row.employeeNumber,
-      row.companyNumber,
-      row.topUpDate,
-      row.topUpEE,
-      row.topUpVEE,
-      row.topUpER,
+    const values: (string | number)[] = [
+      row.transactionId ?? '',
+      row.serial ?? '',
+      dateToExcelSerial(row.modifiedDate ?? row.topUpDate),
+      dateToExcelSerial(row.topUpDate),
+      '', // Company_Number — blank in Access export
+      row.employeeId ?? '',
+      '', // Employee_Number — blank in Access export
+    ];
+
+    for (let fund = 1; fund <= 10; fund += 1) {
+      values.push(fundOf(row, fund).unitPrice);
+    }
+    for (let fund = 1; fund <= 10; fund += 1) {
+      values.push(fundOf(row, fund).eeValue);
+    }
+    for (let fund = 1; fund <= 10; fund += 1) {
+      values.push(fundOf(row, fund).veeValue);
+    }
+    for (let fund = 1; fund <= 10; fund += 1) {
+      values.push(fundOf(row, fund).erValue);
+    }
+    for (let fund = 1; fund <= 10; fund += 1) {
+      values.push(0); // Terminated_ER_Value_F*
+    }
+
+    values.push(
       row.transactionalEe,
       row.transactionalVee,
       row.transactionalEr,
       row.transactionalTotal,
-    ]);
+    );
+
+    sheet.addRow(values);
   }
+
   const buf = await wb.xlsx.writeBuffer();
   return new Blob([buf], {
     type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',

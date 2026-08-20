@@ -1,16 +1,24 @@
 import { useEffect, useRef, useState } from 'react';
 import type { FormEvent } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Upload, CheckCircle2, AlertCircle, Download } from 'lucide-react';
+import { Upload, CheckCircle2, AlertCircle, Download, FolderOpen, FileSpreadsheet } from 'lucide-react';
 import ExcelJS from 'exceljs';
 import PageHeader from '../../components/PageHeader';
 import { topUpsApi } from '../../lib/api';
 import { useAuth } from '../../lib/auth';
 import { companiesApi } from '../../lib/companiesApi';
 import { extractApiError } from '../../lib/httpClient';
-import { requestSaveLocation, suggestedNameFromPath, writeSaveLocation } from '../../lib/saveFile';
-import { buildBulkTopUpWorkbook } from '../../lib/topUpPdf';
+import { requestDirectoryLocation, requestSaveLocation, suggestedNameFromPath, writeSaveLocation } from '../../lib/saveFile';
+import type { DirectoryLocation } from '../../lib/saveFile';
+import {
+  buildBulkTopUpWorkbook,
+  buildTopUpPdf,
+  bulkTopUpExcelName,
+  bulkTopUpPdfName,
+} from '../../lib/topUpPdf';
 import type { BulkTopUpResult, BulkTopUpRow, Company } from '../../types';
+
+type OutputDir = Extract<DirectoryLocation, { mode: 'directory' }>;
 
 function cellText(value: ExcelJS.CellValue): string {
   if (value == null) return '';
@@ -37,7 +45,6 @@ function normalizeHeader(h: string): string {
 }
 
 function excelSerialToIso(n: number): string {
-  // Excel serial date → JS date (UTC-ish); Access exports often use real dates or serials
   const epoch = new Date(Date.UTC(1899, 11, 30));
   const ms = epoch.getTime() + n * 86400000;
   const d = new Date(ms);
@@ -161,10 +168,12 @@ async function buildBulkTopUpTemplate(): Promise<Blob> {
 export default function BulkTopUp() {
   const { user } = useAuth();
   const fileRef = useRef<HTMLInputElement>(null);
+  const outputDirRef = useRef<OutputDir | null>(null);
   const [companies, setCompanies] = useState<Company[]>([]);
   const [companiesLoading, setCompaniesLoading] = useState(false);
   const [companyNumber, setCompanyNumber] = useState('');
-  const [path, setPath] = useState('');
+  const [excelFile, setExcelFile] = useState<File | null>(null);
+  const [outputFolder, setOutputFolder] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<BulkTopUpResult | null>(null);
@@ -188,52 +197,64 @@ export default function BulkTopUp() {
     };
   }, []);
 
-  const handleUploadClick = (e: FormEvent) => {
+  const onExcelSelected = (file: File | null) => {
+    setError(null);
+    setResult(null);
+    setExcelFile(file);
+  };
+
+  const chooseOutputFolder = async () => {
+    setError(null);
+    const dir = await requestDirectoryLocation();
+    if (dir.mode === 'cancelled') return;
+    if (dir.mode === 'unsupported') {
+      setError('Folder selection is not supported in this browser. Use Chrome or Edge.');
+      return;
+    }
+    outputDirRef.current = dir;
+    setOutputFolder(dir.name);
+  };
+
+  const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
     setError(null);
     setResult(null);
 
     if (!companyNumber) {
-      setError('All fields are required.');
+      setError('Company Number is required.');
       return;
     }
-    fileRef.current?.click();
-  };
+    if (!excelFile) {
+      setError('Choose the Excel list to upload.');
+      return;
+    }
+    const dir = outputDirRef.current;
+    if (!dir) {
+      setError('Choose the output folder before processing.');
+      return;
+    }
 
-  const onFileSelected = async (file: File | null) => {
-    if (!file) return;
-    setError(null);
-    setResult(null);
-    const location = await requestSaveLocation({
-      suggestedName: suggestedNameFromPath(path, `TopUp_${companyNumber}.xlsx`),
-      mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-    });
-    if (location.mode === 'cancelled') {
-      if (fileRef.current) fileRef.current.value = '';
-      return;
-    }
     setLoading(true);
     try {
-      const parsed = await parseTopUpWorkbook(file);
+      const parsed = await parseTopUpWorkbook(excelFile);
       const res = await topUpsApi.bulk({
         companyNumber,
         rows: parsed,
-        path: path || undefined,
+        path: outputFolder || undefined,
         userName: user?.username,
       });
-      const rows = res.rows.length > 0
-        ? res.rows
-        : parsed.map((row) => ({
-            employeeNumber: row.employeeNumber,
-            ok: false,
-            message: 'Employee not found. Use the Employee_Number from Add Top Up.',
-            total: row.ee + row.er + row.vee,
-          }));
-      const posted = res.posted ?? res.rows.map((row) => row.report).filter((row): row is NonNullable<typeof row> => Boolean(row));
+      const rows = res.rows;
+      const posted = res.posted ?? rows.map((row) => row.report).filter((row): row is NonNullable<typeof row> => Boolean(row));
+
       if (posted.length > 0) {
+        for (const report of posted) {
+          const pdf = await buildTopUpPdf(report);
+          await dir.writeFile(bulkTopUpPdfName(report.employeeNumber), pdf);
+        }
         const workbook = await buildBulkTopUpWorkbook(companyNumber, posted);
-        await writeSaveLocation(location, workbook);
+        await dir.writeFile(bulkTopUpExcelName(companyNumber), workbook);
       }
+
       setResult({
         ...res,
         processed: rows.length,
@@ -246,7 +267,6 @@ export default function BulkTopUp() {
       setError(err instanceof Error ? err.message : 'Bulk top-up failed');
     } finally {
       setLoading(false);
-      if (fileRef.current) fileRef.current.value = '';
     }
   };
 
@@ -254,7 +274,7 @@ export default function BulkTopUp() {
     setError(null);
     try {
       const location = await requestSaveLocation({
-        suggestedName: suggestedNameFromPath(path, 'TopUp_Employees_Template.xlsx'),
+        suggestedName: suggestedNameFromPath(undefined, 'TopUp_Employees_Template.xlsx'),
         mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
       });
       if (location.mode === 'cancelled') return;
@@ -275,7 +295,7 @@ export default function BulkTopUp() {
       </motion.div>
 
       <div className="kaf-card" style={{ padding: '22px 24px', maxWidth: 560 }}>
-        <form onSubmit={handleUploadClick}>
+        <form onSubmit={(e) => void handleSubmit(e)}>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
             <Field label="Company Number" required>
               <select
@@ -293,34 +313,63 @@ export default function BulkTopUp() {
               </select>
             </Field>
 
-            <Field label="Path">
+            <Field label="Excel List" required>
+              <div style={{ display: 'flex', gap: 8 }}>
+                <input
+                  className="kaf-input"
+                  value={excelFile?.name ?? ''}
+                  readOnly
+                  placeholder="Choose the Excel file to upload…"
+                  disabled={loading}
+                  style={{ flex: 1 }}
+                />
+                <button
+                  type="button"
+                  className="kaf-btn-ghost"
+                  onClick={() => fileRef.current?.click()}
+                  disabled={loading}
+                  style={{ whiteSpace: 'nowrap' }}
+                >
+                  <FileSpreadsheet size={14} /> Browse
+                </button>
+              </div>
               <input
-                className="kaf-input"
-                value={path}
-                onChange={(e) => setPath(e.target.value)}
-                placeholder="Optional — choose location in the save dialog"
-                disabled={loading}
+                ref={fileRef}
+                type="file"
+                accept=".xlsx,.xls"
+                style={{ display: 'none' }}
+                onChange={(e) => onExcelSelected(e.target.files?.[0] ?? null)}
               />
             </Field>
 
-            <p style={{ margin: 0, fontSize: 12, color: 'var(--kaf-muted)', lineHeight: 1.5 }}>
-              Excel columns: <code>Employee_Number</code>, <code>EE</code>, <code>ER</code>,{' '}
-              <code>VEE</code>, <code>Unit_Price_Date</code>
-            </p>
+            <Field label="Output Folder" required>
+              <div style={{ display: 'flex', gap: 8 }}>
+                <input
+                  className="kaf-input"
+                  value={outputFolder}
+                  readOnly
+                  placeholder="Choose where PDFs and Excel will be saved…"
+                  disabled={loading}
+                  style={{ flex: 1 }}
+                />
+                <button
+                  type="button"
+                  className="kaf-btn-ghost"
+                  onClick={() => void chooseOutputFolder()}
+                  disabled={loading}
+                  style={{ whiteSpace: 'nowrap' }}
+                >
+                  <FolderOpen size={14} /> Choose
+                </button>
+              </div>
+            </Field>
+
 
             {error && (
               <div className="kaf-callout error" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                 <AlertCircle size={15} /> {error}
               </div>
             )}
-
-            <input
-              ref={fileRef}
-              type="file"
-              accept=".xlsx,.xls"
-              style={{ display: 'none' }}
-              onChange={(e) => void onFileSelected(e.target.files?.[0] ?? null)}
-            />
 
             <button type="button" className="kaf-btn-ghost" onClick={() => void downloadTemplate()} disabled={loading} style={{ width: '100%' }}>
               <Download size={14} /> Download Excel Template
@@ -349,7 +398,7 @@ export default function BulkTopUp() {
             >
               <CheckCircle2 size={16} />
               {result.succeeded > 0
-                ? `Processed ${result.processed}: ${result.succeeded} succeeded, ${result.failed} failed. Top-Up Transactions Completed Successfully. Data exported to Excel.`
+                ? `Processed ${result.processed}: ${result.succeeded} succeeded, ${result.failed} failed. Top-Up Transactions Completed Successfully. PDFs and Excel saved to ${outputFolder || 'output folder'}.`
                 : `No top-ups were posted. ${result.rows[0]?.message ?? 'Check Employee_Number and amounts.'}`}
             </div>
             <div className="kaf-card" style={{ overflow: 'hidden' }}>
@@ -357,7 +406,6 @@ export default function BulkTopUp() {
                 <thead>
                   <tr>
                     <th>Employee</th>
-                    <th>Status</th>
                     <th>Message</th>
                     <th>Total</th>
                   </tr>
@@ -366,7 +414,6 @@ export default function BulkTopUp() {
                   {result.rows.map((r) => (
                     <tr key={`${r.employeeNumber}-${r.message}`}>
                       <td style={{ fontFamily: "'JetBrains Mono', monospace" }}>{r.employeeNumber}</td>
-                      <td>{r.ok ? 'OK' : 'Failed'}</td>
                       <td>{r.message}</td>
                       <td>{r.total != null ? r.total.toLocaleString(undefined, { minimumFractionDigits: 2 }) : '—'}</td>
                     </tr>

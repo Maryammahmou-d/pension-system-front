@@ -113,6 +113,57 @@ export async function requestSaveLocation(opts: {
   return { mode: 'download', fileName };
 }
 
+export type DirectoryLocation =
+  | { mode: 'directory'; name: string; writeFile: (fileName: string, contents: Blob) => Promise<void> }
+  | { mode: 'cancelled' }
+  | { mode: 'unsupported' };
+
+/**
+ * Ask the user for a destination folder (Chrome/Edge). Cancel → cancelled.
+ * Call from a user gesture (click handler) so the picker is allowed.
+ */
+export async function requestDirectoryLocation(): Promise<DirectoryLocation> {
+  const w = window as Window & {
+    showDirectoryPicker?: (options?: {
+      mode?: 'read' | 'readwrite';
+    }) => Promise<{
+      name: string;
+      getFileHandle: (
+        name: string,
+        options?: { create?: boolean },
+      ) => Promise<{
+        createWritable: () => Promise<{
+          write: (data: Blob) => Promise<void>;
+          close: () => Promise<void>;
+        }>;
+      }>;
+    }>;
+  };
+
+  if (typeof w.showDirectoryPicker !== 'function') {
+    return { mode: 'unsupported' };
+  }
+
+  try {
+    const dir = await w.showDirectoryPicker({ mode: 'readwrite' });
+    return {
+      mode: 'directory',
+      name: dir.name,
+      writeFile: async (fileName: string, contents: Blob) => {
+        const handle = await dir.getFileHandle(sanitizeFileName(fileName), { create: true });
+        const writable = await handle.createWritable();
+        await writable.write(contents);
+        await writable.close();
+      },
+    };
+  } catch (err) {
+    if (err instanceof DOMException && err.name === 'AbortError') {
+      return { mode: 'cancelled' };
+    }
+    return { mode: 'unsupported' };
+  }
+}
+
 export function mockExportContents(reportLabel: string, meta?: Record<string, unknown>): string {
   return [
     `Rubix Pension — mock export`,
