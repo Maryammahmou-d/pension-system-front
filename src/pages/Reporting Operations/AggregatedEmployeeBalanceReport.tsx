@@ -5,7 +5,11 @@ import PageHeader from '../../components/PageHeader';
 import { dateHelpers, reportsApi } from '../../lib/api';
 import { companiesApi } from '../../lib/companiesApi';
 import { extractApiError } from '../../lib/httpClient';
-import { mockExportContents, saveFileWithPicker, suggestedNameFromPath } from '../../lib/saveFile';
+import {
+  balanceReportExcelName,
+  balanceReportPdfName,
+} from '../../lib/balanceReportPdf';
+import { suggestedNameFromPath, requestSaveLocation, writeSaveLocation } from '../../lib/saveFile';
 import type { Company } from '../../types';
 import { Field, ReportFeedback } from '../../components/reports/reportFormBits';
 
@@ -45,20 +49,38 @@ export default function AggregatedEmployeeBalanceReport() {
       setError('Company Number and Valuation Date are required.');
       return;
     }
+
+    const fallbackName =
+      format === 'pdf'
+        ? balanceReportPdfName(valuationDate, companyNumber)
+        : balanceReportExcelName(valuationDate, companyNumber);
+    const mimeType =
+      format === 'pdf'
+        ? 'application/pdf'
+        : 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
+
+    const location = await requestSaveLocation({
+      suggestedName: suggestedNameFromPath(path, fallbackName),
+      mimeType,
+    });
+    if (location.mode === 'cancelled') return;
+
     setLoading(format);
     try {
-      const res = await reportsApi.extract('aggregated-employee-balance', format, {
-        companyNumber, valuationDate, path: path || undefined,
-      });
-      const ext = format === 'pdf' ? 'pdf.txt' : 'xlsx.txt';
-      const saved = await saveFileWithPicker({
-        suggestedName: suggestedNameFromPath(path, `aggregated-employee-balance.${ext}`),
-        contents: mockExportContents('Aggregated Employee Balance', { companyNumber, valuationDate, format }),
-      });
-      if (saved === 'cancelled') return;
-      setSuccess(res.message);
+      const contents =
+        format === 'pdf'
+          ? await reportsApi.downloadAggregatedEmployeeBalancePdf(companyNumber, valuationDate)
+          : await reportsApi.downloadAggregatedEmployeeBalanceExcel(companyNumber, valuationDate);
+
+      await writeSaveLocation(location, contents);
+
+      setSuccess(
+        format === 'excel'
+          ? 'Excel report generated successfully.'
+          : 'PDF report generated successfully.',
+      );
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Extract failed');
+      setError(extractApiError(err, 'Extract failed'));
     } finally {
       setLoading(null);
     }

@@ -1,3 +1,4 @@
+import axios from 'axios';
 import type {
   BulkTopUpRequest,
   BulkTopUpResult,
@@ -14,6 +15,7 @@ import type {
   TopUpResult,
   UnitPriceRow,
 } from '../types';
+import { http } from './httpClient';
 
 const delay = (ms = 180) => new Promise<void>((r) => setTimeout(r, ms));
 
@@ -485,7 +487,7 @@ export const unitPricesApi = {
   },
 };
 
-// ── Reports (mock extract) ───────────────────────────────────────
+// ── Reports ──────────────────────────────────────────────────────
 
 export type ReportExtractFormat = 'pdf' | 'excel' | 'data' | 'transactions' | 'records';
 
@@ -497,6 +499,56 @@ export interface ReportExtractResult {
 }
 
 export const reportsApi = {
+  downloadAggregatedEmployeeBalancePdf: async (
+    companyNumber: string,
+    valuationDate: string,
+  ): Promise<Blob> => {
+    try {
+      const { data } = await http.get<Blob>('/reports/aggregated-employee-balance/pdf', {
+        params: { companyNumber, valuationDate },
+        responseType: 'blob',
+      });
+      return data;
+    } catch (err) {
+      if (axios.isAxiosError(err) && err.response?.data instanceof Blob) {
+        const text = await err.response.data.text();
+        try {
+          const parsed = JSON.parse(text) as { message?: string };
+          if (parsed.message) throw new Error(parsed.message);
+        } catch (parseErr) {
+          if (parseErr instanceof Error && parseErr.message !== text) throw parseErr;
+        }
+        if (text.trim()) throw new Error(text);
+      }
+      throw err;
+    }
+  },
+
+  downloadAggregatedEmployeeBalanceExcel: async (
+    companyNumber: string,
+    valuationDate: string,
+  ): Promise<Blob> => {
+    try {
+      const { data } = await http.get<Blob>('/reports/aggregated-employee-balance/excel', {
+        params: { companyNumber, valuationDate },
+        responseType: 'blob',
+      });
+      return data;
+    } catch (err) {
+      if (axios.isAxiosError(err) && err.response?.data instanceof Blob) {
+        const text = await err.response.data.text();
+        try {
+          const parsed = JSON.parse(text) as { message?: string };
+          if (parsed.message) throw new Error(parsed.message);
+        } catch (parseErr) {
+          if (parseErr instanceof Error && parseErr.message !== text) throw parseErr;
+        }
+        if (text.trim()) throw new Error(text);
+      }
+      throw err;
+    }
+  },
+
   extract: async (
     reportKey: string,
     format: ReportExtractFormat,
