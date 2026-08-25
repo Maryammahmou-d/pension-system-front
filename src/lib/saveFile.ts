@@ -138,6 +138,7 @@ export type SaveLocation =
       write: (contents: Blob) => Promise<void>;
       discardIfEmpty: () => Promise<void>;
     }
+  | { mode: 'handle'; fileName: string; write: (contents: Blob) => Promise<void> }
   | { mode: 'download'; fileName: string }
   | { mode: 'cancelled' };
 
@@ -154,6 +155,13 @@ export async function requestSaveLocation(opts: {
       suggestedName?: string;
       types?: { description?: string; accept: Record<string, string[]> }[];
     }) => Promise<RemovableFileHandle>;
+    }) => Promise<{
+      name: string;
+      createWritable: () => Promise<{
+        write: (data: Blob) => Promise<void>;
+        close: () => Promise<void>;
+      }>;
+    }>;
   };
 
   if (typeof w.showSaveFilePicker === 'function') {
@@ -173,6 +181,7 @@ export async function requestSaveLocation(opts: {
       return {
         mode: 'handle',
         fileName,
+        fileName: sanitizeFileName(handle.name),
         write: async (contents: Blob) => {
           await writeFileHandle(handle, contents);
         },

@@ -49,7 +49,7 @@ export default function CancelInvoice() {
 
     setLoading(true);
     try {
-      const inv = await invoicesApi.cancel({
+      await invoicesApi.cancel({
         invoiceNumber,
         cancellationDate,
         userName: user?.username,
