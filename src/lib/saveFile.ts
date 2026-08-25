@@ -60,7 +60,7 @@ export async function saveFileWithPicker(opts: SaveFileOptions): Promise<SaveFil
 }
 
 export type SaveLocation =
-  | { mode: 'handle'; write: (contents: Blob) => Promise<void> }
+  | { mode: 'handle'; fileName: string; write: (contents: Blob) => Promise<void> }
   | { mode: 'download'; fileName: string }
   | { mode: 'cancelled' };
 
@@ -77,6 +77,7 @@ export async function requestSaveLocation(opts: {
       suggestedName?: string;
       types?: { description?: string; accept: Record<string, string[]> }[];
     }) => Promise<{
+      name: string;
       createWritable: () => Promise<{
         write: (data: Blob) => Promise<void>;
         close: () => Promise<void>;
@@ -97,6 +98,7 @@ export async function requestSaveLocation(opts: {
       });
       return {
         mode: 'handle',
+        fileName: sanitizeFileName(handle.name),
         write: async (contents: Blob) => {
           const writable = await handle.createWritable();
           await writable.write(contents);

@@ -1,4 +1,8 @@
-import type { CreateCompanyRequest, Company } from '../types';
+import type {
+  Company,
+  CompanyTerminationRequest,
+  CreateCompanyRequest,
+} from '../types';
 import { extractApiError, http } from './httpClient';
 
 export const companiesApi = {
@@ -13,10 +17,10 @@ export const companiesApi = {
 
   getLatest: async (): Promise<Company[]> => {
     try {
-      const { data } = await http.get<Company[]>('/companies/latest');
+      const { data } = await http.get<Company[]>('/companies/active');
       return data;
     } catch (err) {
-      throw new Error(extractApiError(err, 'Failed to load companies.'));
+      throw new Error(extractApiError(err, 'Failed to load active companies.'));
     }
   },
 
@@ -26,6 +30,24 @@ export const companiesApi = {
       return data;
     } catch (err) {
       throw new Error(extractApiError(err, 'Failed to load last company number.'));
+    }
+  },
+
+  getActive: async (): Promise<Company[]> => {
+    try {
+      const { data } = await http.get<Company[]>('/companies/active');
+      return data;
+    } catch (err) {
+      throw new Error(extractApiError(err, 'Failed to load active companies.'));
+    }
+  },
+
+  terminate: async (req: CompanyTerminationRequest): Promise<ArrayBuffer> => {
+    try {
+      const { data } = await http.post<ArrayBuffer>('/company-termination', req, { responseType: 'arraybuffer' });
+      return data;
+    } catch (err) {
+      throw new Error(extractApiError(err, 'Company termination request failed.'));
     }
   },
 
