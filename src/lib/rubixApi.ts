@@ -523,6 +523,13 @@ async function downloadReportBlob(url: string, params: Record<string, string | b
   }
 }
 
+function parseAttachmentFilename(header: string | undefined, fallback: string): string {
+  if (!header) return fallback;
+  const match = /filename[^;=\n]*=(('.*?'|\".*?\")|[^;\n]*)/.exec(header);
+  if (!match) return fallback;
+  return match[1].replace(/^['"]|['"]$/g, '').trim() || fallback;
+}
+
 export const reportsApi = {
   downloadAggregatedEmployeeBalancePdf: async (
     companyNumber: string,
@@ -587,6 +594,22 @@ export const reportsApi = {
       valuationDate,
       activeOnly,
     });
+  },
+
+  downloadCompanyTransactions: async (
+    companyNumber: string,
+  ): Promise<{ blob: Blob; filename: string }> => {
+    const res = await http.get<Blob>('/transactions/export', {
+      params: { companyNumber },
+      responseType: 'blob',
+      headers: { Accept: '*/*', 'Content-Type': undefined },
+    });
+    const header = res.headers['content-disposition'];
+    const filename = parseAttachmentFilename(
+      typeof header === 'string' ? header : undefined,
+      `Transactions_${companyNumber}.xlsx`,
+    );
+    return { blob: res.data, filename };
   },
 
   listCompanyBalanceEmployees: async (

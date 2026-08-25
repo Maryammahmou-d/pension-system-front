@@ -5,7 +5,7 @@ import PageHeader from '../../components/PageHeader';
 import { reportsApi } from '../../lib/api';
 import { companiesApi } from '../../lib/companiesApi';
 import { extractApiError } from '../../lib/httpClient';
-import { mockExportContents, saveFileWithPicker, suggestedNameFromPath } from '../../lib/saveFile';
+import { saveFileWithPicker, suggestedNameFromPath } from '../../lib/saveFile';
 import type { Company } from '../../types';
 import { Field, ReportFeedback } from '../../components/reports/reportFormBits';
 
@@ -46,17 +46,16 @@ export default function CompanyTransactionsReport() {
     }
     setLoading(true);
     try {
-      const res = await reportsApi.extract('company-transactions', 'transactions', {
-        companyNumber, path: path || undefined,
-      });
+      const { blob, filename } = await reportsApi.downloadCompanyTransactions(companyNumber);
       const saved = await saveFileWithPicker({
-        suggestedName: suggestedNameFromPath(path, 'company-transactions.txt'),
-        contents: mockExportContents('Company Transactions', { companyNumber }),
+        suggestedName: suggestedNameFromPath(path, filename),
+        contents: blob,
+        mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
       });
       if (saved === 'cancelled') return;
-      setSuccess(res.message);
+      setSuccess(`Saved ${filename}`);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Extract failed');
+      setError(extractApiError(err, 'Extract failed'));
     } finally {
       setLoading(false);
     }
