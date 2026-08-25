@@ -5,7 +5,9 @@ import { Building } from 'lucide-react';
 import PageHeader from '../../components/PageHeader';
 import type { Company } from '../../types';
 import { companiesApi } from '../../lib/companiesApi';
+import { requestSaveLocation, suggestedNameFromPath, writeSaveLocation } from '../../lib/saveFile';
 import { extractApiError } from '../../lib/httpClient';
+
 
 
 
@@ -27,19 +29,20 @@ export default function TerminateCompany() {
   const [success, setSuccess] = useState<string | null>(null);
   const [companies, setCompanies] = useState<Company[]>([]);
   const [companiesLoading, setCompaniesLoading] = useState(false);
+  const [loading, setLoading] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
     setCompaniesLoading(true);
     companiesApi
-      .getLatest()
+      .getActive()
       .then((list) => {
         if (cancelled) return;
         setCompanies(list);
       })
       .catch((err) => {
         if (cancelled) return;
-        setError(extractApiError(err, 'Failed to load companies.'));
+        setError(extractApiError(err, 'Failed to load active companies.'));
       })
       .finally(() => {
         if (!cancelled) setCompaniesLoading(false);
@@ -55,7 +58,7 @@ export default function TerminateCompany() {
     setSuccess(null);
   };
 
-  const handleTerminate = (e: FormEvent) => {
+  const handleTerminate = async (e: FormEvent) => {
     e.preventDefault();
     setError(null);
     setSuccess(null);
@@ -68,12 +71,34 @@ export default function TerminateCompany() {
       setError('Termination Date is required.');
       return;
     }
-    if (!s.path.trim()) {
-      setError('Path is required.');
-      return;
-    }
 
-    setSuccess(`Company ${s.companyNumber} termination simulated. PDF/Excel generation will be wired once the structure is provided.`);
+    setLoading(true);
+    try {
+      const location = await requestSaveLocation({
+        suggestedName: suggestedNameFromPath(s.path, `Termination_${s.companyNumber}.xlsx`),
+        mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      });
+      if (location.mode === 'cancelled') {
+        setLoading(false);
+        return;
+      }
+
+      const xlsx = await companiesApi.terminate({
+        companyNumber: s.companyNumber,
+        terminationDate: s.terminationDate,
+        path: s.path,
+      });
+      await writeSaveLocation(
+        location,
+        new Blob([xlsx], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }),
+      );
+      setSuccess(`Company ${s.companyNumber} terminated.`);
+      setS(emptyState());
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Company termination failed.');
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleClear = () => {
@@ -92,7 +117,7 @@ export default function TerminateCompany() {
       <PageHeader
         icon={Building}
         title="Terminate Company"
-        subtitle="Record a company termination and the download path."
+        subtitle="Record a company termination."
       />
 
       <form onSubmit={handleTerminate} className="kaf-card" style={{ padding: 28, maxWidth: 900, margin: '0 auto' }}>
@@ -113,10 +138,10 @@ export default function TerminateCompany() {
               className="kaf-input kaf-select"
               value={s.companyNumber}
               onChange={onChange('companyNumber')}
-              disabled={companiesLoading}
+              disabled={companiesLoading || loading}
             >
               <option value="" disabled>
-                {companiesLoading ? 'Loading companies…' : 'Select company number'}
+                {companiesLoading ? 'Loading active companies…' : 'Select active company'}
               </option>
               {companies.map((c) => (
                 <option key={c.companyNumber} value={c.companyNumber}>
@@ -132,25 +157,28 @@ export default function TerminateCompany() {
               type="date"
               value={s.terminationDate}
               onChange={onChange('terminationDate')}
+              disabled={loading}
             />
           </FieldGroup>
 
-          <FieldGroup label="Path" required>
+          <FieldGroup label="Path">
             <input
               className="kaf-input"
               type="text"
               value={s.path}
               onChange={onChange('path')}
+              placeholder="Optional server-side folder (e.g. D:\\Rubix)"
+              disabled={loading}
             />
           </FieldGroup>
         </div>
 
         <div style={{ display: 'flex', gap: 12, marginTop: 24, maxWidth: 640 }}>
-          <button type="button" className="kaf-btn-ghost" onClick={handleClear}>
+          <button type="button" className="kaf-btn-ghost" onClick={handleClear} disabled={loading}>
             Clear
           </button>
-          <button type="submit" className="kaf-btn" style={{ flex: 1 }}>
-            Terminate Company
+          <button type="submit" className="kaf-btn" style={{ flex: 1 }} disabled={loading}>
+            {loading ? 'Terminating…' : 'Terminate Company'}
           </button>
         </div>
       </form>

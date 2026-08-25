@@ -1,7 +1,10 @@
 import type {
+  BulkTerminationRequest,
+  BulkTerminationResult,
   EmployeeFundsWithdrawalEstimate,
   EmployeeFundsWithdrawalResult,
   EmployeeTerminationEstimate,
+  EmployeeTerminationRequest,
 } from '../types';
 import { extractApiError, http } from './httpClient';
 
@@ -54,6 +57,24 @@ export const employeeTerminationApi = {
       return data;
     } catch (err) {
       throw new Error(extractApiError(err, 'Failed to estimate termination.'));
+    }
+  },
+
+  terminate: async (req: EmployeeTerminationRequest): Promise<ArrayBuffer> => {
+    try {
+      const { data } = await http.post<ArrayBuffer>('/employee-termination', req, { responseType: 'arraybuffer' });
+      return data;
+    } catch (err) {
+      throw new Error(extractApiError(err, 'Termination request failed.'));
+    }
+  },
+
+  terminateBulk: async (req: BulkTerminationRequest): Promise<BulkTerminationResult> => {
+    try {
+      const { data } = await http.post<BulkTerminationResult>('/employee-termination/bulk', req);
+      return data;
+    } catch (err) {
+      throw new Error(extractApiError(err, 'Bulk termination request failed.'));
     }
   },
 };

@@ -637,3 +637,99 @@ export interface EmployeeTerminationEstimate {
   terminationDate: string;
   rows: TerminationFundRow[];
 }
+
+export interface TerminationReportFundRow {
+  fund: number;
+  startingEeUnits: number;
+  startingVeeUnits: number;
+  startingErUnits: number;
+  startingTotalUnits: number;
+  transactionalEeUnits: number;
+  transactionalVeeUnits: number;
+  transactionalErUnits: number;
+  terminatedErUnits: number;
+  transactionalTotalUnits: number;
+  unitPrice: number;
+  transactionalEeValue: number;
+  transactionalVeeValue: number;
+  transactionalErValue: number;
+  terminatedErValue: number;
+  transactionalTotalValue: number;
+}
+
+export interface TerminationReport {
+  serial: number;
+  reference: string;
+  companyNumber: string;
+  companyName: string;
+  companyAddress: string;
+  companyPhone: string;
+  employeeId: number;
+  employeeNumber: string;
+  employeeName: string;
+  nationalId: string;
+  category: string;
+  currency: string;
+  pensionStartDate: string;
+  terminationDate: string;
+  resignationDate: string;
+  paymentDate: string;
+  vestingPercentage: number;
+  surrenderChargesEe: number;
+  surrenderChargesVee: number;
+  surrenderChargesEr: number;
+  rows: TerminationReportFundRow[];
+  totalTransactionalEeValue: number;
+  totalTransactionalVeeValue: number;
+  totalTransactionalErValue: number;
+  totalTerminatedErValue: number;
+  totalTransactionalValue: number;
+}
+
+export interface EmployeeTerminationRequest {
+  companyNumber: string;
+  employeeNumber: string;
+  terminationDate: string;
+  resignationDate: string;
+  path?: string;
+}
+
+export interface BulkTerminationRequest {
+  companyNumber: string;
+  employees: {
+    employeeNumber: string;
+    terminationDate: string;
+    resignationDate: string;
+  }[];
+  path?: string;
+}
+
+export interface BulkTerminationResult {
+  message?: string;
+}
+
+export interface CompanyTerminationRequest {
+  companyNumber: string;
+  terminationDate: string;
+  path?: string;
+}
+
+export interface CompanyTerminationRow {
+  description?: string;
+  paymentDate: string | number;
+  companyNumber: string;
+  employeeId: number;
+  employeeNumber: string;
+  nationalId: string;
+  fullName: string;
+  dob: string | number;
+  gender?: string;
+  currency?: string;
+  totalEeValue: number;
+  totalVeeValue: number;
+  totalErValue: number;
+}
+
+export type CompanyTerminationResponse =
+  | CompanyTerminationRow[]
+  | { employees?: CompanyTerminationRow[]; [key: string]: unknown };

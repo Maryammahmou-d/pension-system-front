@@ -13,10 +13,19 @@ export const employeesApi = {
 
   getByCompanyNumber: async (companyNumber: string): Promise<Employee[]> => {
     try {
-      const { data } = await http.get<Employee[]>(`/employee/company/${companyNumber}`);
+      const { data } = await http.get<Employee[]>(`/employee/company/${companyNumber}/active`);
       return data;
     } catch (err) {
-      throw new Error(extractApiError(err, 'Failed to load employees.'));
+      throw new Error(extractApiError(err, 'Failed to load active employees.'));
+    }
+  },
+
+  getActiveByCompanyNumber: async (companyNumber: string): Promise<Employee[]> => {
+    try {
+      const { data } = await http.get<Employee[]>(`/employee/company/${companyNumber}/active`);
+      return data;
+    } catch (err) {
+      throw new Error(extractApiError(err, 'Failed to load active employees.'));
     }
   },
 

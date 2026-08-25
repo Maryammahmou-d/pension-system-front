@@ -6,6 +6,8 @@ import PageHeader from '../../components/PageHeader';
 import type { Company, Employee } from '../../types';
 import { companiesApi } from '../../lib/companiesApi';
 import { employeesApi } from '../../lib/employeesApi';
+import { employeeTerminationApi } from '../../lib/employeeFundsApi';
+import { requestSaveLocation, suggestedNameFromPath, writeSaveLocation } from '../../lib/saveFile';
 import { extractApiError } from '../../lib/httpClient';
 
 interface FormState {
@@ -32,6 +34,7 @@ export default function TerminateEmployee() {
   const [companiesLoading, setCompaniesLoading] = useState(false);
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [employeesLoading, setEmployeesLoading] = useState(false);
+  const [loading, setLoading] = useState(false);
 
   const selectedEmployee = employees.find((e) => e.employeeNumber === s.employeeNumber);
 
@@ -39,7 +42,7 @@ export default function TerminateEmployee() {
     let cancelled = false;
     setCompaniesLoading(true);
     companiesApi
-      .getLatest()
+      .getActive()
       .then((list) => {
         if (cancelled) return;
         setCompanies(list);
@@ -66,7 +69,7 @@ export default function TerminateEmployee() {
     setEmployeesLoading(true);
     setEmployees([]);
     employeesApi
-      .getByCompanyNumber(s.companyNumber)
+      .getActiveByCompanyNumber(s.companyNumber)
       .then((list) => {
         if (cancelled) return;
         setEmployees(list);
@@ -101,7 +104,7 @@ export default function TerminateEmployee() {
     setSuccess(null);
   };
 
-  const handleTerminate = (e: FormEvent) => {
+  const handleTerminate = async (e: FormEvent) => {
     e.preventDefault();
     setError(null);
     setSuccess(null);
@@ -122,12 +125,33 @@ export default function TerminateEmployee() {
       setError('Resignation Date is required.');
       return;
     }
-    if (!s.path.trim()) {
-      setError('Path is required.');
-      return;
-    }
 
-    setSuccess(`Employee ${s.employeeNumber} termination simulated. Backend is not yet connected.`);
+    setLoading(true);
+    try {
+      const location = await requestSaveLocation({
+        suggestedName: suggestedNameFromPath(s.path, `Termination_Report_${s.employeeNumber}.pdf`),
+        mimeType: 'application/pdf',
+      });
+      if (location.mode === 'cancelled') {
+        setLoading(false);
+        return;
+      }
+
+      const pdf = await employeeTerminationApi.terminate({
+        companyNumber: s.companyNumber,
+        employeeNumber: s.employeeNumber,
+        terminationDate: s.terminationDate,
+        resignationDate: s.resignationDate,
+        path: s.path,
+      });
+      await writeSaveLocation(location, new Blob([pdf], { type: 'application/pdf' }));
+      setSuccess(`Employee ${s.employeeNumber} terminated.`);
+      setS(emptyState());
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Termination failed.');
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleClear = () => {
@@ -173,7 +197,7 @@ export default function TerminateEmployee() {
               className="kaf-input kaf-select"
               value={s.companyNumber}
               onChange={handleCompany}
-              disabled={companiesLoading}
+              disabled={companiesLoading || loading}
             >
               <option value="" disabled>
                 {companiesLoading ? 'Loading companies…' : 'Select company number'}
@@ -191,7 +215,7 @@ export default function TerminateEmployee() {
               className="kaf-input kaf-select"
               value={s.employeeNumber}
               onChange={handleEmployee}
-              disabled={!s.companyNumber || employeesLoading}
+              disabled={!s.companyNumber || employeesLoading || loading}
             >
               <option value="" disabled>
                 {!s.companyNumber
@@ -214,6 +238,7 @@ export default function TerminateEmployee() {
               type="date"
               value={s.terminationDate}
               onChange={onChange('terminationDate')}
+              disabled={loading}
             />
           </FieldGroup>
 
@@ -223,25 +248,28 @@ export default function TerminateEmployee() {
               type="date"
               value={s.resignationDate}
               onChange={onChange('resignationDate')}
+              disabled={loading}
             />
           </FieldGroup>
 
-          <FieldGroup label="Path" required>
+          <FieldGroup label="Path">
             <input
               className="kaf-input"
               type="text"
               value={s.path}
               onChange={onChange('path')}
+              placeholder="Optional server-side folder (e.g. D:\\Rubix)"
+              disabled={loading}
             />
           </FieldGroup>
         </div>
 
         <div style={{ display: 'flex', gap: 12, marginTop: 24, maxWidth: 640 }}>
-          <button type="button" className="kaf-btn-ghost" onClick={handleClear}>
+          <button type="button" className="kaf-btn-ghost" onClick={handleClear} disabled={loading}>
             Clear
           </button>
-          <button type="submit" className="kaf-btn" style={{ flex: 1 }}>
-            Terminate Employee
+          <button type="submit" className="kaf-btn" style={{ flex: 1 }} disabled={loading}>
+            {loading ? 'Terminating…' : 'Terminate Employee'}
           </button>
         </div>
       </form>
