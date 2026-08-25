@@ -10,9 +10,11 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "arabic-persian-reshaper": "^1.0.1",
     "axios": "^1.15.1",
     "clsx": "^2.1.1",
     "exceljs": "^4.4.0",
+    "fflate": "^0.8.2",
     "framer-motion": "^12.38.0",
     "jspdf": "^4.2.1",
     "jspdf-autotable": "^5.0.8",

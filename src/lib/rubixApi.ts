@@ -498,55 +498,106 @@ export interface ReportExtractResult {
   format: ReportExtractFormat;
 }
 
+async function downloadReportBlob(url: string, params: Record<string, string | boolean>): Promise<Blob> {
+  try {
+    const { data } = await http.get<Blob>(url, {
+      params,
+      responseType: 'blob',
+      headers: { Accept: '*/*', 'Content-Type': undefined },
+    });
+    return data;
+  } catch (err) {
+    if (axios.isAxiosError(err) && err.response?.data instanceof Blob) {
+      const text = await err.response.data.text();
+      try {
+        const parsed = JSON.parse(text) as { message?: string };
+        if (parsed.message) throw new Error(parsed.message);
+      } catch (parseErr) {
+        if (parseErr instanceof Error && parseErr.message !== text && !(parseErr instanceof SyntaxError)) {
+          throw parseErr;
+        }
+      }
+      if (text.trim()) throw new Error(text);
+    }
+    throw err;
+  }
+}
+
 export const reportsApi = {
   downloadAggregatedEmployeeBalancePdf: async (
     companyNumber: string,
     valuationDate: string,
   ): Promise<Blob> => {
-    try {
-      const { data } = await http.get<Blob>('/reports/aggregated-employee-balance/pdf', {
-        params: { companyNumber, valuationDate },
-        responseType: 'blob',
-      });
-      return data;
-    } catch (err) {
-      if (axios.isAxiosError(err) && err.response?.data instanceof Blob) {
-        const text = await err.response.data.text();
-        try {
-          const parsed = JSON.parse(text) as { message?: string };
-          if (parsed.message) throw new Error(parsed.message);
-        } catch (parseErr) {
-          if (parseErr instanceof Error && parseErr.message !== text) throw parseErr;
-        }
-        if (text.trim()) throw new Error(text);
-      }
-      throw err;
-    }
+    return downloadReportBlob('/reports/aggregated-employee-balance/pdf', { companyNumber, valuationDate });
+  },
+
+  downloadEmployeeBalancePdf: async (
+    companyNumber: string,
+    employeeNumber: string,
+    valuationDate: string,
+  ): Promise<Blob> => {
+    return downloadReportBlob('/reports/employee-balance/pdf', {
+      companyNumber,
+      employeeNumber,
+      valuationDate,
+    });
+  },
+
+  downloadEmployeeBalanceExcel: async (
+    companyNumber: string,
+    employeeNumber: string,
+    valuationDate: string,
+  ): Promise<Blob> => {
+    return downloadReportBlob('/reports/employee-balance/excel', {
+      companyNumber,
+      employeeNumber,
+      valuationDate,
+    });
   },
 
   downloadAggregatedEmployeeBalanceExcel: async (
     companyNumber: string,
     valuationDate: string,
   ): Promise<Blob> => {
-    try {
-      const { data } = await http.get<Blob>('/reports/aggregated-employee-balance/excel', {
-        params: { companyNumber, valuationDate },
-        responseType: 'blob',
-      });
-      return data;
-    } catch (err) {
-      if (axios.isAxiosError(err) && err.response?.data instanceof Blob) {
-        const text = await err.response.data.text();
-        try {
-          const parsed = JSON.parse(text) as { message?: string };
-          if (parsed.message) throw new Error(parsed.message);
-        } catch (parseErr) {
-          if (parseErr instanceof Error && parseErr.message !== text) throw parseErr;
-        }
-        if (text.trim()) throw new Error(text);
-      }
-      throw err;
-    }
+    return downloadReportBlob('/reports/aggregated-employee-balance/excel', {
+      companyNumber,
+      valuationDate,
+    });
+  },
+
+  downloadCompanyBalancePdfZip: async (
+    companyNumber: string,
+    valuationDate: string,
+    activeOnly: boolean,
+  ): Promise<Blob> => {
+    return downloadReportBlob('/reports/company-balance/pdf', {
+      companyNumber,
+      valuationDate,
+      activeOnly,
+    });
+  },
+
+  downloadCompanyBalanceExcelZip: async (
+    companyNumber: string,
+    valuationDate: string,
+    activeOnly: boolean,
+  ): Promise<Blob> => {
+    return downloadReportBlob('/reports/company-balance/excel', {
+      companyNumber,
+      valuationDate,
+      activeOnly,
+    });
+  },
+
+  listCompanyBalanceEmployees: async (
+    companyNumber: string,
+    valuationDate: string,
+    activeOnly: boolean,
+  ): Promise<string[]> => {
+    const { data } = await http.get<string[]>('/reports/company-balance/employees', {
+      params: { companyNumber, valuationDate, activeOnly },
+    });
+    return data;
   },
 
   extract: async (
