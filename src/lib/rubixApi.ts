@@ -612,6 +612,23 @@ export const reportsApi = {
     return { blob: res.data, filename };
   },
 
+  downloadCompaniesFunds: async (
+    valuationDate: string,
+  ): Promise<{ blob: Blob; filename: string }> => {
+    const res = await http.get<Blob>('/funds/export', {
+      params: { valuationDate },
+      responseType: 'blob',
+      headers: { Accept: '*/*', 'Content-Type': undefined },
+    });
+    const header = res.headers['content-disposition'];
+    const fallback = `Funds_Report_${valuationDate.replace(/-/g, '')}.xlsx`;
+    const filename = parseAttachmentFilename(
+      typeof header === 'string' ? header : undefined,
+      fallback,
+    );
+    return { blob: res.data, filename };
+  },
+
   listCompanyBalanceEmployees: async (
     companyNumber: string,
     valuationDate: string,
