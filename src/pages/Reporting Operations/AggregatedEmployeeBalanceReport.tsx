@@ -2,12 +2,21 @@ import { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
 import { FileSpreadsheet, FileText, Users } from 'lucide-react';
 import PageHeader from '../../components/PageHeader';
+import { Field, ReportBusyOverlay, ReportFeedback } from '../../components/reports/reportFormBits';
 import { dateHelpers, reportsApi } from '../../lib/api';
 import { companiesApi } from '../../lib/companiesApi';
 import { extractApiError } from '../../lib/httpClient';
-import { mockExportContents, saveFileWithPicker, suggestedNameFromPath } from '../../lib/saveFile';
+import {
+  balanceReportExcelName,
+  balanceReportPdfName,
+} from '../../lib/balanceReportPdf';
+import {
+  discardUnusedSaveLocation,
+  requestSaveLocation,
+  suggestedNameFromPath,
+  writeSaveLocation,
+} from '../../lib/saveFile';
 import type { Company } from '../../types';
-import { Field, ReportFeedback } from '../../components/reports/reportFormBits';
 
 export default function AggregatedEmployeeBalanceReport() {
   const [companies, setCompanies] = useState<Company[]>([]);
@@ -45,24 +54,48 @@ export default function AggregatedEmployeeBalanceReport() {
       setError('Company Number and Valuation Date are required.');
       return;
     }
+
+    const fallbackName =
+      format === 'pdf'
+        ? balanceReportPdfName(valuationDate, companyNumber)
+        : balanceReportExcelName(valuationDate, companyNumber);
+    const mimeType =
+      format === 'pdf'
+        ? 'application/pdf'
+        : 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
+
+    // Start Save-As in this click turn (Chrome drops the gesture after network awaits).
+    const locationPromise = requestSaveLocation({
+      suggestedName: suggestedNameFromPath(path, fallbackName),
+      mimeType,
+    });
+
+    const location = await locationPromise;
+    if (location.mode === 'cancelled') return;
+
     setLoading(format);
     try {
-      const res = await reportsApi.extract('aggregated-employee-balance', format, {
-        companyNumber, valuationDate, path: path || undefined,
-      });
-      const ext = format === 'pdf' ? 'pdf.txt' : 'xlsx.txt';
-      const saved = await saveFileWithPicker({
-        suggestedName: suggestedNameFromPath(path, `aggregated-employee-balance.${ext}`),
-        contents: mockExportContents('Aggregated Employee Balance', { companyNumber, valuationDate, format }),
-      });
-      if (saved === 'cancelled') return;
-      setSuccess(res.message);
+      const contents =
+        format === 'pdf'
+          ? await reportsApi.downloadAggregatedEmployeeBalancePdf(companyNumber, valuationDate)
+          : await reportsApi.downloadAggregatedEmployeeBalanceExcel(companyNumber, valuationDate);
+
+      await writeSaveLocation(location, contents);
+
+      setSuccess(
+        format === 'excel'
+          ? 'Excel report generated successfully.'
+          : 'PDF report generated successfully.',
+      );
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Extract failed');
+      await discardUnusedSaveLocation(location);
+      setError(extractApiError(err, 'Extract failed'));
     } finally {
       setLoading(null);
     }
   };
+
+  const busyMessage = loading === 'excel' ? 'Generating Excel…' : 'Generating PDF…';
 
   return (
     <div className="kaf-page">
@@ -74,7 +107,8 @@ export default function AggregatedEmployeeBalanceReport() {
         />
       </motion.div>
 
-      <div className="kaf-card" style={{ padding: '22px 24px', maxWidth: 560 }}>
+      <div className="kaf-card" style={{ padding: '22px 24px', maxWidth: 560, position: 'relative' }}>
+        <ReportBusyOverlay show={!!loading} message={busyMessage} />
         <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
           <Field label="Company Number" required>
             <select

@@ -52,3 +52,81 @@ export function ReportFeedback({
     </>
   );
 }
+
+/** Semi-transparent layer over a report card while PDF/Excel is generating. */
+export function ReportBusyOverlay({
+  show,
+  message,
+  progress,
+}: {
+  show: boolean;
+  message: string;
+  /** 0–100 when known; omit for spinner-only. */
+  progress?: number | null;
+}) {
+  const pct =
+    typeof progress === 'number' && Number.isFinite(progress)
+      ? Math.max(0, Math.min(100, Math.round(progress)))
+      : null;
+
+  return (
+    <AnimatePresence>
+      {show && (
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          transition={{ duration: 0.15 }}
+          style={{
+            position: 'absolute',
+            inset: 0,
+            zIndex: 5,
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: 12,
+            borderRadius: 'inherit',
+            background: 'rgba(14, 11, 30, 0.55)',
+            backdropFilter: 'blur(2px)',
+            WebkitBackdropFilter: 'blur(2px)',
+            padding: '0 28px',
+          }}
+        >
+          {pct !== null ? (
+            <div style={{ fontSize: 28, fontWeight: 700, color: 'var(--kaf-purple-light)', letterSpacing: '0.02em' }}>
+              {pct}%
+            </div>
+          ) : (
+            <span className="kaf-spinner" style={{ width: 28, height: 28, borderWidth: 3 }} />
+          )}
+          <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--kaf-text)', textAlign: 'center' }}>
+            {message}
+          </div>
+          {pct !== null && (
+            <div
+              style={{
+                width: '100%',
+                maxWidth: 220,
+                height: 6,
+                borderRadius: 999,
+                background: 'rgba(255,255,255,0.12)',
+                overflow: 'hidden',
+              }}
+            >
+              <div
+                style={{
+                  width: `${pct}%`,
+                  height: '100%',
+                  borderRadius: 999,
+                  background: 'var(--kaf-purple)',
+                  transition: 'width 0.25s ease',
+                }}
+              />
+            </div>
+          )}
+        </motion.div>
+      )}
+    </AnimatePresence>
+  );
+}

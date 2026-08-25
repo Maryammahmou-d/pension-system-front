@@ -642,6 +642,47 @@ export interface EmployeeTerminationEstimate {
   rows: TerminationFundRow[];
 }
 
+export interface AggregatedBalanceRow {
+  fullName: string;
+  employeeNumber: string;
+  currency: string;
+  grossContributionEe: number;
+  grossContributionVee: number;
+  grossContributionEr: number;
+  netContributionEe: number;
+  netContributionVee: number;
+  netContributionEr: number;
+  investmentReturnEe: number;
+  investmentReturnVee: number;
+  investmentReturnEr: number;
+  totalInvestmentReturn: number;
+  accumulatedValueEe: number;
+  accumulatedValueVee: number;
+  accumulatedValueEr: number;
+  accumulatedValueTotal: number;
+}
+
+export interface AggregatedBalanceTotals {
+  grossContributionEe: number;
+  grossContributionVee: number;
+  grossContributionEr: number;
+  investmentReturnEe: number;
+  investmentReturnVee: number;
+  investmentReturnEr: number;
+  totalInvestmentReturn: number;
+  accumulatedValueEe: number;
+  accumulatedValueVee: number;
+  accumulatedValueEr: number;
+  accumulatedValueTotal: number;
+}
+
+export interface AggregatedBalanceReportResponse {
+  companyNumber: string;
+  valuationDate: string;
+  currency: string;
+  rows: AggregatedBalanceRow[];
+  totals: AggregatedBalanceTotals;
+}
 export interface TerminationReportFundRow {
   fund: number;
   startingEeUnits: number;

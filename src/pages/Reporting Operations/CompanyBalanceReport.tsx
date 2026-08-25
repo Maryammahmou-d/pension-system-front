@@ -1,13 +1,42 @@
 import { useEffect, useState } from 'react';
+import axios from 'axios';
 import { motion } from 'framer-motion';
 import { Building2, FileSpreadsheet, FileText } from 'lucide-react';
 import PageHeader from '../../components/PageHeader';
+import { Field, ReportBusyOverlay, ReportFeedback } from '../../components/reports/reportFormBits';
 import { dateHelpers, reportsApi } from '../../lib/api';
+import {
+  companyBalanceFolderName,
+  employeeBalanceExcelName,
+  employeeBalancePdfName,
+} from '../../lib/balanceReportPdf';
 import { companiesApi } from '../../lib/companiesApi';
 import { extractApiError } from '../../lib/httpClient';
-import { mockExportContents, saveFileWithPicker, suggestedNameFromPath } from '../../lib/saveFile';
+import { requestDirectoryLocation } from '../../lib/saveFile';
 import type { Company } from '../../types';
-import { Field, ReportFeedback } from '../../components/reports/reportFormBits';
+
+function isSkippableEmployeeError(err: unknown): boolean {
+  if (axios.isAxiosError(err) && err.response?.status === 404) return true;
+  const message = err instanceof Error ? err.message : String(err ?? '');
+  return message.includes('No data to export for this Employee');
+}
+
+/** Run async work over items with a fixed concurrency limit. */
+async function runWithConcurrency<T>(
+  items: T[],
+  concurrency: number,
+  worker: (item: T) => Promise<void>,
+): Promise<void> {
+  let next = 0;
+  const runners = Array.from({ length: Math.min(concurrency, items.length) }, async () => {
+    while (next < items.length) {
+      const index = next;
+      next += 1;
+      await worker(items[index]);
+    }
+  });
+  await Promise.all(runners);
+}
 
 export default function CompanyBalanceReport() {
   const [companies, setCompanies] = useState<Company[]>([]);
@@ -17,6 +46,7 @@ export default function CompanyBalanceReport() {
   const [valuationDate, setValuationDate] = useState(dateHelpers.todayIso());
   const [path, setPath] = useState('');
   const [loading, setLoading] = useState<'pdf' | 'excel' | null>(null);
+  const [progress, setProgress] = useState(0);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
 
@@ -46,24 +76,80 @@ export default function CompanyBalanceReport() {
       setError('Company Number and Valuation Date are required.');
       return;
     }
+
+    // Folder picker first in this click turn (Chrome drops the gesture after network awaits).
+    const parentPromise = requestDirectoryLocation();
+    const parent = await parentPromise;
+    if (parent.mode === 'cancelled') return;
+    if (parent.mode === 'unsupported') {
+      setError('Folder selection is not supported in this browser. Use Chrome or Edge.');
+      return;
+    }
+
+    const folderName = companyBalanceFolderName(valuationDate, companyNumber);
+    setProgress(0);
     setLoading(format);
     try {
-      const res = await reportsApi.extract('company-balance', format, {
-        companyNumber, activeOnly, valuationDate, path: path || undefined,
+      // Validates unit price + returns the same employee set the ZIP used to build.
+      const employeeNumbers = await reportsApi.listCompanyBalanceEmployees(
+        companyNumber,
+        valuationDate,
+        activeOnly,
+      );
+      if (employeeNumbers.length === 0) {
+        setError('No employee reports were returned for this company and date.');
+        return;
+      }
+
+      const folder = await parent.createNamedSubfolder(folderName);
+      let saved = 0;
+      let completed = 0;
+      const total = employeeNumbers.length;
+      const concurrency = 8;
+
+      // Generate/save several employees at once so files appear as each finishes.
+      await runWithConcurrency(employeeNumbers, concurrency, async (employeeNumber) => {
+        try {
+          const contents =
+            format === 'pdf'
+              ? await reportsApi.downloadEmployeeBalancePdf(companyNumber, employeeNumber, valuationDate)
+              : await reportsApi.downloadEmployeeBalanceExcel(companyNumber, employeeNumber, valuationDate);
+          const fileName =
+            format === 'pdf'
+              ? employeeBalancePdfName(valuationDate, employeeNumber)
+              : employeeBalanceExcelName(valuationDate, employeeNumber);
+          await folder.writeFile(fileName, contents);
+          saved += 1;
+        } catch (err) {
+          // Match ZIP service: skip employees with no balance data; fail hard on other errors.
+          if (!isSkippableEmployeeError(err)) throw err;
+        } finally {
+          completed += 1;
+          setProgress(Math.round((completed / total) * 100));
+        }
       });
-      const ext = format === 'pdf' ? 'pdf.txt' : 'xlsx.txt';
-      const saved = await saveFileWithPicker({
-        suggestedName: suggestedNameFromPath(path, `company-balance.${ext}`),
-        contents: mockExportContents('Company Balance', { companyNumber, valuationDate, format, activeOnly }),
-      });
-      if (saved === 'cancelled') return;
-      setSuccess(res.message);
+
+      if (saved === 0) {
+        setError('No employee reports were returned for this company and date.');
+        return;
+      }
+
+      setProgress(100);
+      setSuccess(
+        format === 'pdf'
+          ? `Saved ${saved} PDF report${saved === 1 ? '' : 's'} in ${folder.name}.`
+          : `Saved ${saved} Excel report${saved === 1 ? '' : 's'} in ${folder.name}.`,
+      );
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Extract failed');
+      setError(extractApiError(err, 'Extract failed'));
     } finally {
       setLoading(null);
+      setProgress(0);
     }
   };
+
+  const busyMessage =
+    loading === 'excel' ? 'Generating Excel…' : 'Generating company balance reports…';
 
   return (
     <div className="kaf-page">
@@ -75,7 +161,8 @@ export default function CompanyBalanceReport() {
         />
       </motion.div>
 
-      <div className="kaf-card" style={{ padding: '22px 24px', maxWidth: 560 }}>
+      <div className="kaf-card" style={{ padding: '22px 24px', maxWidth: 560, position: 'relative' }}>
+        <ReportBusyOverlay show={!!loading} message={busyMessage} progress={progress} />
         <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
           <Field label="Company Number" required>
             <select
