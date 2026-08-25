@@ -6,7 +6,12 @@ import { reportsApi } from '../../lib/api';
 import { companiesApi } from '../../lib/companiesApi';
 import { employeesApi } from '../../lib/employeesApi';
 import { extractApiError } from '../../lib/httpClient';
-import { mockExportContents, saveFileWithPicker, suggestedNameFromPath } from '../../lib/saveFile';
+import {
+  discardUnusedSaveLocation,
+  requestSaveLocation,
+  suggestedNameFromPath,
+  writeSaveLocation,
+} from '../../lib/saveFile';
 import type { Company, Employee } from '../../types';
 import { Field, ReportFeedback } from '../../components/reports/reportFormBits';
 
@@ -71,19 +76,22 @@ export default function EmployeeTransactionsReport() {
       setError('Company Number and Employee Number are required.');
       return;
     }
+
+    const locationPromise = requestSaveLocation({
+      suggestedName: suggestedNameFromPath(path, `Transactions_${employeeNumber}.xlsx`),
+      mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    });
+    const location = await locationPromise;
+    if (location.mode === 'cancelled') return;
+
     setLoading(true);
     try {
-      const res = await reportsApi.extract('employee-transactions', 'transactions', {
-        companyNumber, employeeNumber, path: path || undefined,
-      });
-      const saved = await saveFileWithPicker({
-        suggestedName: suggestedNameFromPath(path, 'employee-transactions.txt'),
-        contents: mockExportContents('Employee Transactions', { companyNumber, employeeNumber }),
-      });
-      if (saved === 'cancelled') return;
-      setSuccess(res.message);
+      const { blob } = await reportsApi.downloadEmployeeTransactions(companyNumber, employeeNumber);
+      await writeSaveLocation(location, blob);
+      setSuccess(`Saved ${location.fileName}`);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Extract failed');
+      await discardUnusedSaveLocation(location);
+      setError(extractApiError(err, 'Extract failed'));
     } finally {
       setLoading(false);
     }

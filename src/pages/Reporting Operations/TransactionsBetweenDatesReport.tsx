@@ -3,7 +3,13 @@ import { motion } from 'framer-motion';
 import { CalendarRange } from 'lucide-react';
 import PageHeader from '../../components/PageHeader';
 import { dateHelpers, reportsApi } from '../../lib/api';
-import { mockExportContents, saveFileWithPicker, suggestedNameFromPath } from '../../lib/saveFile';
+import { extractApiError } from '../../lib/httpClient';
+import {
+  discardUnusedSaveLocation,
+  requestSaveLocation,
+  suggestedNameFromPath,
+  writeSaveLocation,
+} from '../../lib/saveFile';
 import { Field, ReportFeedback } from '../../components/reports/reportFormBits';
 
 export default function TransactionsBetweenDatesReport() {
@@ -26,19 +32,22 @@ export default function TransactionsBetweenDatesReport() {
       setError('Start Date must be on or before End Date.');
       return;
     }
+    const fallbackName = `Transactions_${startDate.replace(/-/g, '')}_${endDate.replace(/-/g, '')}.xlsx`;
+    const locationPromise = requestSaveLocation({
+      suggestedName: suggestedNameFromPath(path, fallbackName),
+      mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    });
+    const location = await locationPromise;
+    if (location.mode === 'cancelled') return;
+
     setLoading(true);
     try {
-      const res = await reportsApi.extract('transactions-between-dates', 'transactions', {
-        path: path || undefined, startDate, endDate,
-      });
-      const saved = await saveFileWithPicker({
-        suggestedName: suggestedNameFromPath(path, 'transactions-between-dates.txt'),
-        contents: mockExportContents('Transactions Between Dates', { startDate, endDate }),
-      });
-      if (saved === 'cancelled') return;
-      setSuccess(res.message);
+      const { blob } = await reportsApi.downloadTransactionsBetweenDates(startDate, endDate);
+      await writeSaveLocation(location, blob);
+      setSuccess(`Saved ${location.fileName}`);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Extract failed');
+      await discardUnusedSaveLocation(location);
+      setError(extractApiError(err, 'Extract failed'));
     } finally {
       setLoading(false);
     }
