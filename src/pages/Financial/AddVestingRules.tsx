@@ -63,9 +63,9 @@ export default function AddVestingRules() {
     }
     let cancelled = false;
     void vestingRulesApi
-      .get(companyNumber)
-      .then((rule) => {
-        if (!cancelled) setRules(rule ? [rule] : []);
+      .listByCompany(companyNumber)
+      .then((list) => {
+        if (!cancelled) setRules(list);
       })
       .catch(() => {
         if (!cancelled) setRules([]);
@@ -229,11 +229,11 @@ export default function AddVestingRules() {
               </tr>
             </thead>
             <tbody>
-              {rules.map((rule) => (
-                <tr key={rule.companyNumber}>
+              {rules.map((rule, idx) => (
+                <tr key={`${rule.companyNumber}-${idx}`}>
                   <td>{rule.companyNumber}</td>
                   {YEARS.map(({ key }) => (
-                    <td key={`${rule.companyNumber}-${key}`}>{rule[key]}%</td>
+                    <td key={`${rule.companyNumber}-${idx}-${key}`}>{rule[key]}%</td>
                   ))}
                 </tr>
               ))}

@@ -64,17 +64,17 @@ export default function EditVestingRules() {
     }
     let cancelled = false;
     void vestingRulesApi
-      .get(companyNumber)
-      .then((rule) => {
+      .listByCompany(companyNumber)
+      .then((list) => {
         if (cancelled) return;
-        if (rule) {
+        setRules(list);
+        if (list.length > 0) {
+          const rule = list[0];
           const next = { ...EMPTY };
           for (const { key } of YEARS) next[key] = String(rule[key]);
           setValues(next);
-          setRules([rule]);
         } else {
           setValues({ ...EMPTY });
-          setRules([]);
         }
       })
       .catch(() => {
@@ -128,9 +128,10 @@ export default function EditVestingRules() {
 
     setLoading(true);
     try {
-      const updated = await vestingRulesApi.update(rule);
+      await vestingRulesApi.update(rule);
+      const list = await vestingRulesApi.listByCompany(companyNumber);
+      setRules(list);
       setSuccess(`Vesting rules updated for ${companyNumber}.`);
-      setRules([updated]);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to update vesting rules.');
     } finally {
@@ -239,11 +240,11 @@ export default function EditVestingRules() {
               </tr>
             </thead>
             <tbody>
-              {rules.map((rule) => (
-                <tr key={rule.companyNumber}>
+              {rules.map((rule, idx) => (
+                <tr key={`${rule.companyNumber}-${idx}`}>
                   <td>{rule.companyNumber}</td>
                   {YEARS.map(({ key }) => (
-                    <td key={`${rule.companyNumber}-${key}`}>{rule[key]}%</td>
+                    <td key={`${rule.companyNumber}-${idx}-${key}`}>{rule[key]}%</td>
                   ))}
                 </tr>
               ))}
