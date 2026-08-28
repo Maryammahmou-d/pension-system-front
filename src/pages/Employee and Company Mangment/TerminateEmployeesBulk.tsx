@@ -2,24 +2,43 @@ import { useEffect, useState } from 'react';
 import type { ChangeEvent, FormEvent } from 'react';
 import { motion } from 'framer-motion';
 import { Users } from 'lucide-react';
+import * as XLSX from 'xlsx';
 import PageHeader from '../../components/PageHeader';
 import type { Company } from '../../types';
 import { companiesApi } from '../../lib/companiesApi';
+import { employeeTerminationApi } from '../../lib/employeeFundsApi';
 import { extractApiError } from '../../lib/httpClient';
+
 
 
 
 interface FormState {
   companyNumber: string;
-  path: string;
   file: File | null;
+  path: string;
 }
 
 const emptyState = (): FormState => ({
   companyNumber: '',
-  path: '',
   file: null,
+  path: '',
 });
+
+function toIsoDate(value: unknown): string {
+  if (typeof value === 'number' && !Number.isNaN(value) && value > 1) {
+    return XLSX.SSF.format('yyyy-mm-dd', value);
+  }
+  if (typeof value === 'string') {
+    const trimmed = value.trim();
+    if (/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) return trimmed;
+    const d = new Date(trimmed);
+    if (!Number.isNaN(d.getTime())) return d.toISOString().slice(0, 10);
+  }
+  if (value instanceof Date) {
+    return value.toISOString().slice(0, 10);
+  }
+  throw new Error(`Invalid date value: ${value}`);
+}
 
 export default function TerminateEmployeesBulk() {
   const [s, setS] = useState<FormState>(emptyState());
@@ -27,12 +46,13 @@ export default function TerminateEmployeesBulk() {
   const [success, setSuccess] = useState<string | null>(null);
   const [companies, setCompanies] = useState<Company[]>([]);
   const [companiesLoading, setCompaniesLoading] = useState(false);
+  const [loading, setLoading] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
     setCompaniesLoading(true);
     companiesApi
-      .getLatest()
+      .getActive()
       .then((list) => {
         if (cancelled) return;
         setCompanies(list);
@@ -55,7 +75,7 @@ export default function TerminateEmployeesBulk() {
     setSuccess(null);
   };
 
-  const handleFile = (e: ChangeEvent<HTMLInputElement>) => {
+  const handleFile = async (e: ChangeEvent<HTMLInputElement>) => {
     const selected = e.target.files?.[0] ?? null;
     setError(null);
     setSuccess(null);
@@ -63,11 +83,13 @@ export default function TerminateEmployeesBulk() {
     if (!s.companyNumber.trim()) {
       setError('Company Number is required.');
       setS((prev) => ({ ...prev, file: null }));
+      e.target.value = '';
       return;
     }
     if (!s.path.trim()) {
       setError('Path is required.');
       setS((prev) => ({ ...prev, file: null }));
+      e.target.value = '';
       return;
     }
     if (!selected) {
@@ -76,7 +98,55 @@ export default function TerminateEmployeesBulk() {
     }
 
     setS((prev) => ({ ...prev, file: selected }));
-    setSuccess(`List uploaded for ${s.companyNumber}. PDF/Excel generation will be wired once the structure is provided.`);
+    setLoading(true);
+    try {
+      const ab = await selected.arrayBuffer();
+      const workbook = XLSX.read(ab, { type: 'array' });
+      const allRows: (string | number)[][] = [];
+      for (const sheetName of workbook.SheetNames) {
+        const sheet = workbook.Sheets[sheetName];
+        const rows = XLSX.utils.sheet_to_json<(string | number)[]>(sheet, { header: 1, defval: '' });
+        if (rows.length) allRows.push(...rows);
+      }
+      const headerRowIdx = allRows.findIndex((row) =>
+        row.some((cell) => /employee.*number|emp.*number|employee/i.test(String(cell).trim()))
+      );
+      if (headerRowIdx === -1) {
+        setError('Could not find Employee Number column in the uploaded file.');
+        return;
+      }
+      const headers = allRows[headerRowIdx].map((h) => String(h).trim().toLowerCase());
+      const employeeIdx = headers.findIndex((h) => /employee.*number|emp.*number|employee/i.test(h));
+      const terminationIdx = headers.findIndex((h) => /termination/i.test(h));
+      const resignationIdx = headers.findIndex((h) => /resignation/i.test(h));
+      if (employeeIdx === -1 || terminationIdx === -1 || resignationIdx === -1) {
+        setError('Employee Number, Termination Date and Resignation Date columns are required.');
+        return;
+      }
+      const employees = allRows
+        .slice(headerRowIdx + 1)
+        .map((row) => ({
+          employeeNumber: String(row[employeeIdx] ?? '').trim(),
+          terminationDate: toIsoDate(row[terminationIdx]),
+          resignationDate: toIsoDate(row[resignationIdx]),
+        }))
+        .filter((row) => row.employeeNumber);
+      if (employees.length === 0) {
+        setError('No valid employee rows found after the header.');
+        return;
+      }
+      const result = await employeeTerminationApi.terminateBulk({
+        companyNumber: s.companyNumber,
+        employees,
+        path: s.path,
+      });
+      setSuccess(result.message ?? `Bulk termination submitted for ${s.companyNumber}.`);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Bulk termination failed.');
+    } finally {
+      setLoading(false);
+      e.target.value = '';
+    }
   };
 
   const handleClear = () => {
@@ -95,7 +165,7 @@ export default function TerminateEmployeesBulk() {
       <PageHeader
         icon={Users}
         title="Terminate Employees in Bulk"
-        subtitle="Upload a list of employees to terminate. PDF/Excel generation will be added once the structure is provided."
+        subtitle="Upload a list of employees to terminate. The backend will generate the files."
       />
 
       <form className="kaf-card" style={{ padding: 28, maxWidth: 900, margin: '0 auto' }} onSubmit={(e: FormEvent) => e.preventDefault()}>
@@ -111,21 +181,12 @@ export default function TerminateEmployeesBulk() {
         )}
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: 14, maxWidth: 640 }}>
-          <FieldGroup label="Path" required>
-            <input
-              className="kaf-input"
-              type="text"
-              value={s.path}
-              onChange={onChange('path')}
-            />
-          </FieldGroup>
-
           <FieldGroup label="Company Number" required>
             <select
               className="kaf-input kaf-select"
               value={s.companyNumber}
               onChange={onChange('companyNumber')}
-              disabled={companiesLoading}
+              disabled={companiesLoading || loading}
             >
               <option value="" disabled>
                 {companiesLoading ? 'Loading companies…' : 'Select company number'}
@@ -137,10 +198,21 @@ export default function TerminateEmployeesBulk() {
               ))}
             </select>
           </FieldGroup>
+
+          <FieldGroup label="Path" required>
+            <input
+              className="kaf-input"
+              type="text"
+              value={s.path}
+              onChange={onChange('path')}
+              placeholder="Server-side folder (e.g. D:\\Rubix)"
+              disabled={loading}
+            />
+          </FieldGroup>
         </div>
 
         <div style={{ display: 'flex', gap: 12, marginTop: 24, maxWidth: 640 }}>
-          <button type="button" className="kaf-btn-ghost" onClick={handleClear}>
+          <button type="button" className="kaf-btn-ghost" onClick={handleClear} disabled={loading}>
             Clear
           </button>
           <label className="kaf-btn" htmlFor="bulk-file" style={{ flex: 1, textAlign: 'center' }}>
@@ -151,7 +223,8 @@ export default function TerminateEmployeesBulk() {
             type="file"
             accept=".xlsx,.xls,.csv"
             style={{ display: 'none' }}
-            onChange={handleFile}
+            onChange={(e) => void handleFile(e)}
+            disabled={loading}
           />
         </div>
 
