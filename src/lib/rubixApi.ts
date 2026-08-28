@@ -510,8 +510,9 @@ async function downloadReportBlob(url: string, params: Record<string, string | b
     if (axios.isAxiosError(err) && err.response?.data instanceof Blob) {
       const text = await err.response.data.text();
       try {
-        const parsed = JSON.parse(text) as { message?: string };
-        if (parsed.message) throw new Error(parsed.message);
+        const parsed = JSON.parse(text) as { message?: string; detail?: string; error?: string };
+        const message = parsed.message ?? parsed.detail ?? parsed.error;
+        if (message) throw new Error(message);
       } catch (parseErr) {
         if (parseErr instanceof Error && parseErr.message !== text && !(parseErr instanceof SyntaxError)) {
           throw parseErr;
@@ -521,6 +522,13 @@ async function downloadReportBlob(url: string, params: Record<string, string | b
     }
     throw err;
   }
+}
+
+function parseAttachmentFilename(header: string | undefined, fallback: string): string {
+  if (!header) return fallback;
+  const match = /filename[^;=\n]*=(('.*?'|\".*?\")|[^;\n]*)/.exec(header);
+  if (!match) return fallback;
+  return match[1].replace(/^['"]|['"]$/g, '').trim() || fallback;
 }
 
 export const reportsApi = {
@@ -587,6 +595,54 @@ export const reportsApi = {
       valuationDate,
       activeOnly,
     });
+  },
+
+  downloadCompanyTransactions: async (
+    companyNumber: string,
+  ): Promise<{ blob: Blob; filename: string }> => {
+    const res = await http.get<Blob>('/transactions/export', {
+      params: { companyNumber },
+      responseType: 'blob',
+      headers: { Accept: '*/*', 'Content-Type': undefined },
+    });
+    const header = res.headers['content-disposition'];
+    const filename = parseAttachmentFilename(
+      typeof header === 'string' ? header : undefined,
+      `Transactions_${companyNumber}.xlsx`,
+    );
+    return { blob: res.data, filename };
+  },
+
+  downloadEmployeeTransactions: async (
+    companyNumber: string,
+    employeeNumber: string,
+  ): Promise<{ blob: Blob; filename: string }> => {
+    const blob = await downloadReportBlob('/transactions/employee/export', {
+      companyNumber,
+      employeeNumber,
+    });
+    return { blob, filename: `Transactions_${employeeNumber}.xlsx` };
+  },
+
+  downloadTransactionsBetweenDates: async (
+    startDate: string,
+    endDate: string,
+  ): Promise<{ blob: Blob; filename: string }> => {
+    const blob = await downloadReportBlob('/transactions/dates/export', { startDate, endDate });
+    return {
+      blob,
+      filename: `Transactions_${startDate.replace(/-/g, '')}_${endDate.replace(/-/g, '')}.xlsx`,
+    };
+  },
+
+  downloadCompaniesFunds: async (
+    valuationDate: string,
+  ): Promise<{ blob: Blob; filename: string }> => {
+    const blob = await downloadReportBlob('/funds/export', { valuationDate });
+    return {
+      blob,
+      filename: `Funds_Report_${valuationDate.replace(/-/g, '')}.xlsx`,
+    };
   },
 
   listCompanyBalanceEmployees: async (

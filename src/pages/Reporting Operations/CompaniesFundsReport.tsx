@@ -3,7 +3,13 @@ import { motion } from 'framer-motion';
 import { FileSpreadsheet, Landmark } from 'lucide-react';
 import PageHeader from '../../components/PageHeader';
 import { dateHelpers, reportsApi } from '../../lib/api';
-import { mockExportContents, saveFileWithPicker, suggestedNameFromPath } from '../../lib/saveFile';
+import { extractApiError } from '../../lib/httpClient';
+import {
+  discardUnusedSaveLocation,
+  requestSaveLocation,
+  suggestedNameFromPath,
+  writeSaveLocation,
+} from '../../lib/saveFile';
 import { Field, ReportFeedback } from '../../components/reports/reportFormBits';
 
 export default function CompaniesFundsReport() {
@@ -20,19 +26,22 @@ export default function CompaniesFundsReport() {
       setError('Valuation Date is required.');
       return;
     }
+
+    const locationPromise = requestSaveLocation({
+      suggestedName: suggestedNameFromPath(path, `Funds_Report_${valuationDate.replace(/-/g, '')}.xlsx`),
+      mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    });
+    const location = await locationPromise;
+    if (location.mode === 'cancelled') return;
+
     setLoading(true);
     try {
-      const res = await reportsApi.extract('companies-funds', 'excel', {
-        valuationDate, path: path || undefined,
-      });
-      const saved = await saveFileWithPicker({
-        suggestedName: suggestedNameFromPath(path, 'companies-funds.xlsx.txt'),
-        contents: mockExportContents('Companies Funds', { valuationDate }),
-      });
-      if (saved === 'cancelled') return;
-      setSuccess(res.message);
+      const { blob } = await reportsApi.downloadCompaniesFunds(valuationDate);
+      await writeSaveLocation(location, blob);
+      setSuccess(`Saved ${location.fileName}`);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Extract failed');
+      await discardUnusedSaveLocation(location);
+      setError(extractApiError(err, 'Extract failed'));
     } finally {
       setLoading(false);
     }

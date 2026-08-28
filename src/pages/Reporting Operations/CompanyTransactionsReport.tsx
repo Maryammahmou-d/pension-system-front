@@ -5,7 +5,12 @@ import PageHeader from '../../components/PageHeader';
 import { reportsApi } from '../../lib/api';
 import { companiesApi } from '../../lib/companiesApi';
 import { extractApiError } from '../../lib/httpClient';
-import { mockExportContents, saveFileWithPicker, suggestedNameFromPath } from '../../lib/saveFile';
+import {
+  discardUnusedSaveLocation,
+  requestSaveLocation,
+  suggestedNameFromPath,
+  writeSaveLocation,
+} from '../../lib/saveFile';
 import type { Company } from '../../types';
 import { Field, ReportFeedback } from '../../components/reports/reportFormBits';
 
@@ -44,19 +49,22 @@ export default function CompanyTransactionsReport() {
       setError('Company Number is required.');
       return;
     }
+
+    const locationPromise = requestSaveLocation({
+      suggestedName: suggestedNameFromPath(path, `Transactions_${companyNumber}.xlsx`),
+      mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    });
+    const location = await locationPromise;
+    if (location.mode === 'cancelled') return;
+
     setLoading(true);
     try {
-      const res = await reportsApi.extract('company-transactions', 'transactions', {
-        companyNumber, path: path || undefined,
-      });
-      const saved = await saveFileWithPicker({
-        suggestedName: suggestedNameFromPath(path, 'company-transactions.txt'),
-        contents: mockExportContents('Company Transactions', { companyNumber }),
-      });
-      if (saved === 'cancelled') return;
-      setSuccess(res.message);
+      const { blob } = await reportsApi.downloadCompanyTransactions(companyNumber);
+      await writeSaveLocation(location, blob);
+      setSuccess(`Saved ${location.fileName}`);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Extract failed');
+      await discardUnusedSaveLocation(location);
+      setError(extractApiError(err, 'Extract failed'));
     } finally {
       setLoading(false);
     }
