@@ -600,6 +600,32 @@ export const reportsApi = {
     return data;
   },
 
+  downloadEmployeeExtractAppExcel: async (reportDate: string): Promise<Blob> => {
+    try {
+      const { data } = await http.get<Blob>('/reports/employee-extract-app/excel', {
+        params: { reportDate },
+        responseType: 'blob',
+        timeout: 300_000,
+        headers: { Accept: '*/*', 'Content-Type': undefined },
+      });
+      return data;
+    } catch (err) {
+      if (axios.isAxiosError(err) && err.response?.data instanceof Blob) {
+        const text = await err.response.data.text();
+        try {
+          const parsed = JSON.parse(text) as { message?: string };
+          if (parsed.message) throw new Error(parsed.message);
+        } catch (parseErr) {
+          if (parseErr instanceof Error && parseErr.message !== text && !(parseErr instanceof SyntaxError)) {
+            throw parseErr;
+          }
+        }
+        if (text.trim()) throw new Error(text);
+      }
+      throw err;
+    }
+  },
+
   extract: async (
     reportKey: string,
     format: ReportExtractFormat,

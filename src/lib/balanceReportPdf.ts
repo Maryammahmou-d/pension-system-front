@@ -30,3 +30,10 @@ export function companyBalanceZipName(valuationDate: string, companyNumber: stri
 export function companyBalanceFolderName(valuationDate: string, companyNumber: string): string {
   return `Company_Balance_Reports_${yyyymmdd(valuationDate)}_${companyNumber.trim()}`;
 }
+
+/** Access Employee Extract for App: AppData_yyyy_m_d.xlsx (no zero-pad). */
+export function employeeExtractAppExcelName(reportDate: string): string {
+  const [year, month, day] = reportDate.split('-');
+  if (!year || !month || !day) return `AppData_${yyyymmdd(reportDate)}.xlsx`;
+  return `AppData_${Number(year)}_${Number(month)}_${Number(day)}.xlsx`;
+}

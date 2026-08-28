@@ -11,13 +11,21 @@ export const vestingRulesApi = {
     }
   },
 
-  get: async (companyNumber: string): Promise<VestingRule | null> => {
+  /** All vesting history rows for a company (newest first), matching Access. */
+  listByCompany: async (companyNumber: string): Promise<VestingRule[]> => {
     try {
-      const { data } = await http.get<VestingRule | null>(`/vesting-rules/${encodeURIComponent(companyNumber)}`);
-      return data;
+      const { data } = await http.get<VestingRule[]>(
+        `/vesting-rules/${encodeURIComponent(companyNumber)}`,
+      );
+      return Array.isArray(data) ? data : data ? [data] : [];
     } catch (err) {
       throw new Error(extractApiError(err, 'Failed to load vesting rules.'));
     }
+  },
+
+  get: async (companyNumber: string): Promise<VestingRule | null> => {
+    const rules = await vestingRulesApi.listByCompany(companyNumber);
+    return rules[0] ?? null;
   },
 
   create: async (rule: VestingRule): Promise<VestingRule> => {

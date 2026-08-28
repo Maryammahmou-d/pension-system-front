@@ -2,9 +2,16 @@ import { useState } from 'react';
 import { motion } from 'framer-motion';
 import { Smartphone } from 'lucide-react';
 import PageHeader from '../../components/PageHeader';
+import { Field, ReportBusyOverlay, ReportFeedback } from '../../components/reports/reportFormBits';
 import { dateHelpers, reportsApi } from '../../lib/api';
-import { mockExportContents, saveFileWithPicker, suggestedNameFromPath } from '../../lib/saveFile';
-import { Field, ReportFeedback } from '../../components/reports/reportFormBits';
+import { employeeExtractAppExcelName } from '../../lib/balanceReportPdf';
+import { extractApiError } from '../../lib/httpClient';
+import {
+  discardUnusedSaveLocation,
+  requestSaveLocation,
+  suggestedNameFromPath,
+  writeSaveLocation,
+} from '../../lib/saveFile';
 
 export default function EmployeeExtractAppReport() {
   const [reportDate, setReportDate] = useState(dateHelpers.todayIso());
@@ -20,19 +27,23 @@ export default function EmployeeExtractAppReport() {
       setError('Report Date is required.');
       return;
     }
+
+    const locationPromise = requestSaveLocation({
+      suggestedName: suggestedNameFromPath(path, employeeExtractAppExcelName(reportDate)),
+      mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    });
+
+    const location = await locationPromise;
+    if (location.mode === 'cancelled') return;
+
     setLoading(true);
     try {
-      const res = await reportsApi.extract('employee-extract-app', 'data', {
-        reportDate, path: path || undefined,
-      });
-      const saved = await saveFileWithPicker({
-        suggestedName: suggestedNameFromPath(path, 'employee-extract-app.txt'),
-        contents: mockExportContents('Employee Extract for App', { reportDate }),
-      });
-      if (saved === 'cancelled') return;
-      setSuccess(res.message);
+      const contents = await reportsApi.downloadEmployeeExtractAppExcel(reportDate);
+      await writeSaveLocation(location, contents);
+      setSuccess('Excel report generated successfully.');
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Extract failed');
+      await discardUnusedSaveLocation(location);
+      setError(extractApiError(err, 'Extract failed'));
     } finally {
       setLoading(false);
     }
@@ -48,7 +59,8 @@ export default function EmployeeExtractAppReport() {
         />
       </motion.div>
 
-      <div className="kaf-card" style={{ padding: '22px 24px', maxWidth: 560 }}>
+      <div className="kaf-card" style={{ padding: '22px 24px', maxWidth: 560, position: 'relative' }}>
+        <ReportBusyOverlay show={loading} message="Generating Excel…" />
         <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
           <Field label="Report Date" required>
             <input
@@ -82,4 +94,3 @@ export default function EmployeeExtractAppReport() {
     </div>
   );
 }
-
