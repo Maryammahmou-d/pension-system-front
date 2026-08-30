@@ -5,7 +5,12 @@ import PageHeader from '../../components/PageHeader';
 import { reportsApi } from '../../lib/api';
 import { companiesApi } from '../../lib/companiesApi';
 import { extractApiError } from '../../lib/httpClient';
-import { mockExportContents, saveFileWithPicker, suggestedNameFromPath } from '../../lib/saveFile';
+import {
+  discardUnusedSaveLocation,
+  requestSaveLocation,
+  suggestedNameFromPath,
+  writeSaveLocation,
+} from '../../lib/saveFile';
 import type { Company } from '../../types';
 import { Field, ReportFeedback } from '../../components/reports/reportFormBits';
 
@@ -44,19 +49,24 @@ export default function EmployeeRecordsReport() {
       setError('Company Number is required.');
       return;
     }
+
+    const defaultFilename = `Employee_${companyNumber}.xlsx`;
+    const locationPromise = requestSaveLocation({
+      suggestedName: suggestedNameFromPath(path, defaultFilename),
+      mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    });
+
+    const location = await locationPromise;
+    if (location.mode === 'cancelled') return;
+
     setLoading(true);
     try {
-      const res = await reportsApi.extract('employee-records', 'records', {
-        companyNumber, path: path || undefined,
-      });
-      const saved = await saveFileWithPicker({
-        suggestedName: suggestedNameFromPath(path, 'employee-records.txt'),
-        contents: mockExportContents('Employee Records', { companyNumber }),
-      });
-      if (saved === 'cancelled') return;
-      setSuccess(res.message);
+      const contents = await reportsApi.downloadEmployeeRecordsExcel(companyNumber);
+      await writeSaveLocation(location, contents);
+      setSuccess('Excel report generated successfully.');
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Extract failed');
+      await discardUnusedSaveLocation(location);
+      setError(extractApiError(err, 'Extract failed'));
     } finally {
       setLoading(false);
     }

@@ -129,7 +129,7 @@ const REPORTS_ITEMS: NavItem[] = [
   link('employeeExtractApp', 'Employee Extract for App', FileBarChart2),
   link('companyBalance', 'Generate Company Balance Reports', FileBarChart2),
   link('employeeBalance', 'Generate Employee Balance Report', FileBarChart2),
-  link('employeeRecords', 'Extract Employee', FileBarChart2),
+  link('employeeRecords', 'Extract Employee Records', FileBarChart2),
   link('aggregatedEmployeeBalance', 'Generate Aggregated Employee Balance Report', FileBarChart2),
 ];
 

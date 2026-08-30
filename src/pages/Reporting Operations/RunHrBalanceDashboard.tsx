@@ -1,35 +1,41 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { motion } from 'framer-motion';
 import { LayoutDashboard, Play } from 'lucide-react';
 import PageHeader from '../../components/PageHeader';
 import { dateHelpers, reportsApi } from '../../lib/api';
 import { Field, ReportFeedback } from '../../components/reports/reportFormBits';
-
-/** Seed previous runs like Access (month-end valuation dates, newest first). */
-const INITIAL_RUNS = [
-  '2026-05-31',
-  '2026-04-30',
-  '2026-03-31',
-  '2026-02-28',
-  '2026-01-31',
-  '2025-12-31',
-  '2025-11-30',
-  '2025-10-31',
-  '2025-09-30',
-  '2025-08-31',
-  '2025-07-31',
-  '2025-06-30',
-  '2025-05-31',
-  '2025-04-30',
-  '2025-03-31',
-];
+import { extractApiError } from '../../lib/httpClient';
 
 export default function RunHrBalanceDashboard() {
   const [valuationDate, setValuationDate] = useState(dateHelpers.todayIso());
-  const [previousRuns, setPreviousRuns] = useState<string[]>(INITIAL_RUNS);
+  const [previousRuns, setPreviousRuns] = useState<string[]>([]);
+  const [loadingRuns, setLoadingRuns] = useState(true);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    async function loadPreviousRuns() {
+      setLoadingRuns(true);
+      try {
+        const runs = await reportsApi.getHrBalanceDashboardPreviousRuns();
+        if (!cancelled && Array.isArray(runs)) {
+          setPreviousRuns(runs);
+        }
+      } catch (err) {
+        console.error('Failed to load previous HR dashboard runs:', err);
+      } finally {
+        if (!cancelled) {
+          setLoadingRuns(false);
+        }
+      }
+    }
+    void loadPreviousRuns();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const sortedRuns = useMemo(
     () => [...previousRuns].sort((a, b) => b.localeCompare(a)),
@@ -45,14 +51,18 @@ export default function RunHrBalanceDashboard() {
     }
     setLoading(true);
     try {
-      await reportsApi.extract('hr-balance-dashboard', 'data', { valuationDate });
-      setPreviousRuns((prev) => {
-        if (prev.includes(valuationDate)) return prev;
-        return [valuationDate, ...prev];
-      });
-      setSuccess(`HR Balance Dashboard run completed for ${dateHelpers.formatDisplay(valuationDate)}.`);
+      const result = await reportsApi.runHrBalanceDashboard(valuationDate);
+      if (result.previousRuns) {
+        setPreviousRuns(result.previousRuns);
+      } else {
+        setPreviousRuns((prev) => {
+          if (prev.includes(valuationDate)) return prev;
+          return [valuationDate, ...prev];
+        });
+      }
+      setSuccess(`HR Balance Dashboard run completed successfully for ${dateHelpers.formatDisplay(valuationDate)}.`);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Run failed');
+      setError(extractApiError(err, 'Run failed. Please try again.'));
     } finally {
       setLoading(false);
     }
@@ -117,15 +127,26 @@ export default function RunHrBalanceDashboard() {
               </tr>
             </thead>
             <tbody>
-              {sortedRuns.map((iso) => (
-                <tr key={iso}>
-                  <td>{dateHelpers.formatDisplay(iso)}</td>
-                </tr>
-              ))}
-              {sortedRuns.length === 0 && (
+              {loadingRuns ? (
                 <tr>
-                  <td style={{ color: 'var(--kaf-muted)' }}>No previous runs.</td>
+                  <td style={{ color: 'var(--kaf-muted)' }}>
+                    <span className="kaf-spinner" style={{ display: 'inline-block', marginRight: 8 }} />
+                    Loading previous runs…
+                  </td>
                 </tr>
+              ) : (
+                <>
+                  {sortedRuns.map((iso) => (
+                    <tr key={iso}>
+                      <td>{dateHelpers.formatDisplay(iso)}</td>
+                    </tr>
+                  ))}
+                  {sortedRuns.length === 0 && (
+                    <tr>
+                      <td style={{ color: 'var(--kaf-muted)' }}>No previous runs recorded.</td>
+                    </tr>
+                  )}
+                </>
               )}
             </tbody>
           </table>
@@ -134,4 +155,3 @@ export default function RunHrBalanceDashboard() {
     </div>
   );
 }
-
