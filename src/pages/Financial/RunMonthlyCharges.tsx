@@ -11,15 +11,18 @@ export default function RunMonthlyCharges() {
   const [month, setMonth] = useState(today.getMonth() + 1);
   const [year, setYear] = useState(today.getFullYear());
   const [loading, setLoading] = useState(false);
+  const [loadingRuns, setLoadingRuns] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<MonthlyChargesResult | null>(null);
   const [previousRuns, setPreviousRuns] = useState<MonthlyChargeRun[]>([]);
 
   useEffect(() => {
-    void monthlyChargesApi
+    setLoadingRuns(true);
+    monthlyChargesApi
       .listPrevious()
       .then(setPreviousRuns)
-      .catch(() => setPreviousRuns([]));
+      .catch(() => setPreviousRuns([]))
+      .finally(() => setLoadingRuns(false));
   }, []);
 
   const handleRun = async () => {
@@ -117,25 +120,36 @@ export default function RunMonthlyCharges() {
         )}
       </div>
 
-      <div className="kaf-card" style={{ padding: '20px 22px' }}>
+      <div className="kaf-card" style={{ padding: '18px 20px' }}>
         <h2 className="kaf-section-head" style={{ marginBottom: 12 }}>Previous Runs</h2>
-        <div style={{ overflowX: 'auto' }}>
-          <table className="kaf-table" style={{ width: '100%' }}>
+        <div style={{ maxHeight: 320, overflowY: 'auto', borderRadius: 8, border: '1px solid var(--kaf-border)' }}>
+          <table className="kaf-table" style={{ margin: 0, width: '100%' }}>
             <thead>
               <tr>
                 <th>Payment Date</th>
               </tr>
             </thead>
             <tbody>
-              {previousRuns.map((run) => (
-                <tr key={run.paymentDate}>
-                  <td>{dateHelpers.formatDisplay(run.paymentDate)}</td>
-                </tr>
-              ))}
-              {previousRuns.length === 0 && (
+              {loadingRuns ? (
                 <tr>
-                  <td style={{ color: 'var(--kaf-muted)' }}>No previous runs.</td>
+                  <td style={{ color: 'var(--kaf-muted)' }}>
+                    <span className="kaf-spinner" style={{ display: 'inline-block', marginRight: 8 }} />
+                    Loading previous runs…
+                  </td>
                 </tr>
+              ) : (
+                <>
+                  {previousRuns.map((run) => (
+                    <tr key={run.paymentDate}>
+                      <td>{dateHelpers.formatDisplay(run.paymentDate)}</td>
+                    </tr>
+                  ))}
+                  {previousRuns.length === 0 && (
+                    <tr>
+                      <td style={{ color: 'var(--kaf-muted)' }}>No previous runs recorded.</td>
+                    </tr>
+                  )}
+                </>
               )}
             </tbody>
           </table>

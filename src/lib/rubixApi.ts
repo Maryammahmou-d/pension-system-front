@@ -626,6 +626,149 @@ export const reportsApi = {
     }
   },
 
+  downloadEmployeeRecordsExcel: async (companyNumber: string): Promise<Blob> => {
+    return downloadReportBlob('/reports/employee-records/excel', { companyNumber });
+  },
+
+  downloadInvoiceDetailsExcel: async (invoiceNumber: string): Promise<Blob> => {
+    return downloadReportBlob('/reports/invoice-details/excel', { invoiceNumber });
+  },
+
+  downloadDailyMovementExcel: async (date: string): Promise<{ blob: Blob; filename: string }> => {
+    const res = await http.get<Blob>('/reports/movement-summary/day/excel', {
+      params: { date },
+      responseType: 'blob',
+      headers: { Accept: '*/*', 'Content-Type': undefined },
+    });
+    const header = res.headers['content-disposition'];
+    const [y, m, d] = date.split('-').map(Number);
+    const filename = parseAttachmentFilename(
+      typeof header === 'string' ? header : undefined,
+      `Movement_${y}_${m}_${d}.xlsx`,
+    );
+    return { blob: res.data, filename };
+  },
+
+  downloadDailyMovementPdf: async (date: string): Promise<{ blob: Blob; filename: string }> => {
+    const res = await http.get<Blob>('/reports/movement-summary/day/pdf', {
+      params: { date },
+      responseType: 'blob',
+      headers: { Accept: '*/*', 'Content-Type': undefined },
+    });
+    const header = res.headers['content-disposition'];
+    const [y, m, d] = date.split('-').map(Number);
+    const filename = parseAttachmentFilename(
+      typeof header === 'string' ? header : undefined,
+      `Movement_${y}_${m}_${d}.pdf`,
+    );
+    return { blob: res.data, filename };
+  },
+
+  getMovementBetweenDatesBalance: async (
+    startDate: string,
+    endDate: string,
+  ): Promise<{
+    startDate: string;
+    endDate: string;
+    startDateBalance: {
+      date: string;
+      rows: Array<{
+        fund: number;
+        unitsEe: number;
+        unitsVee: number;
+        unitsEr: number;
+        unitsTotal: number;
+        unitPrice: number;
+        fundsEe: number;
+        fundsVee: number;
+        fundsEr: number;
+        fundsTotal: number;
+      }>;
+      totals: {
+        fund: number;
+        unitsEe: number;
+        unitsVee: number;
+        unitsEr: number;
+        unitsTotal: number;
+        unitPrice: number;
+        fundsEe: number;
+        fundsVee: number;
+        fundsEr: number;
+        fundsTotal: number;
+      };
+    };
+    endDateBalance: {
+      date: string;
+      rows: Array<{
+        fund: number;
+        unitsEe: number;
+        unitsVee: number;
+        unitsEr: number;
+        unitsTotal: number;
+        unitPrice: number;
+        fundsEe: number;
+        fundsVee: number;
+        fundsEr: number;
+        fundsTotal: number;
+      }>;
+      totals: {
+        fund: number;
+        unitsEe: number;
+        unitsVee: number;
+        unitsEr: number;
+        unitsTotal: number;
+        unitPrice: number;
+        fundsEe: number;
+        fundsVee: number;
+        fundsEr: number;
+        fundsTotal: number;
+      };
+    };
+  }> => {
+    const { data } = await http.get('/reports/movement-summary/between-dates/balance', {
+      params: { startDate, endDate },
+    });
+    return data;
+  },
+
+  downloadMovementBetweenDatesExcel: async (
+    startDate: string,
+    endDate: string,
+  ): Promise<{ blob: Blob; filename: string }> => {
+    const res = await http.get<Blob>('/reports/movement-summary/between-dates/excel', {
+      params: { startDate, endDate },
+      responseType: 'blob',
+      headers: { Accept: '*/*', 'Content-Type': undefined },
+    });
+    const header = res.headers['content-disposition'];
+    const [sy, sm, sd] = startDate.split('-').map(Number);
+    const [ey, em, ed] = endDate.split('-').map(Number);
+    const filename = parseAttachmentFilename(
+      typeof header === 'string' ? header : undefined,
+      `Movements_${sy}${sm}${sd}_${ey}${em}${ed}.xlsx`,
+    );
+    return { blob: res.data, filename };
+  },
+
+  getHrBalanceDashboardPreviousRuns: async (): Promise<string[]> => {
+    const { data } = await http.get<string[]>('/reports/hr-balance-dashboard/previous-runs');
+    return data;
+  },
+
+  runHrBalanceDashboard: async (valuationDate: string): Promise<{
+    valuationDate: string;
+    hrDashboardRows: number;
+    hrDashboardCountsRows: number;
+    hrDashboardMonthlyRows: number;
+    unitPriceAnnualizedGainRows: number;
+    previousRuns: string[];
+  }> => {
+    const { data } = await http.post('/reports/hr-balance-dashboard/run', null, {
+      params: { valuationDate },
+    });
+    return data;
+  },
+
   extract: async (
     reportKey: string,
     format: ReportExtractFormat,

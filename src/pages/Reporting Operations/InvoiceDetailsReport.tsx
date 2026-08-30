@@ -3,9 +3,23 @@ import { motion } from 'framer-motion';
 import { FileText } from 'lucide-react';
 import PageHeader from '../../components/PageHeader';
 import { dateHelpers, invoicesApi, reportsApi } from '../../lib/api';
-import { mockExportContents, saveFileWithPicker, suggestedNameFromPath } from '../../lib/saveFile';
+import { extractApiError } from '../../lib/httpClient';
+import {
+  discardUnusedSaveLocation,
+  requestSaveLocation,
+  suggestedNameFromPath,
+  writeSaveLocation,
+} from '../../lib/saveFile';
 import type { Invoice } from '../../types';
 import { Field, ReportFeedback } from '../../components/reports/reportFormBits';
+
+function formatAmount(val: number | null | undefined): string {
+  if (val == null) return '';
+  const num = Number(val);
+  if (Number.isNaN(num)) return '';
+  const fixed = num.toFixed(5);
+  return fixed.replace(/(\.\d*?[1-9])0+$|\.0*$/, '$1');
+}
 
 export default function InvoiceDetailsReport() {
   const [invoices, setInvoices] = useState<Invoice[]>([]);
@@ -47,21 +61,24 @@ export default function InvoiceDetailsReport() {
       setError('Invoice Number is required.');
       return;
     }
+
+    const defaultFilename = `Invoice_${invoiceNumber}.xlsx`;
+    const locationPromise = requestSaveLocation({
+      suggestedName: suggestedNameFromPath(path, defaultFilename),
+      mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    });
+
+    const location = await locationPromise;
+    if (location.mode === 'cancelled') return;
+
     setLoading(true);
     try {
-      const res = await reportsApi.extract('invoice-details', 'data', {
-        invoiceNumber, path: path || undefined, dateFrom: dateFrom || undefined, dateTo: dateTo || undefined,
-      });
-      const saved = await saveFileWithPicker({
-        suggestedName: suggestedNameFromPath(path, `invoice-details-${invoiceNumber}.txt`),
-        contents: mockExportContents('Invoice Details', {
-          invoiceNumber, dateFrom, dateTo, selected,
-        }),
-      });
-      if (saved === 'cancelled') return;
-      setSuccess(res.message);
+      const contents = await reportsApi.downloadInvoiceDetailsExcel(invoiceNumber);
+      await writeSaveLocation(location, contents);
+      setSuccess('Excel report generated successfully.');
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Extract failed');
+      await discardUnusedSaveLocation(location);
+      setError(extractApiError(err, 'Extract failed'));
     } finally {
       setLoading(false);
     }
@@ -77,9 +94,9 @@ export default function InvoiceDetailsReport() {
         />
       </motion.div>
 
-      <div className="kaf-card" style={{ padding: '22px 24px', maxWidth: 820 }}>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-          <div style={{ display: 'grid', gridTemplateColumns: '1.5fr 1fr 1fr', gap: 14, alignItems: 'end' }}>
+      <div className="kaf-card" style={{ padding: '24px 28px', maxWidth: 960 }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: '1.4fr 1fr 1fr', gap: 16, alignItems: 'end' }}>
             <Field label="Invoice Number" required>
               <select
                 className="kaf-input kaf-select"
@@ -126,14 +143,18 @@ export default function InvoiceDetailsReport() {
           </Field>
 
           <div style={{
-            marginTop: 2,
-            paddingTop: 16,
+            marginTop: 4,
+            paddingTop: 18,
             borderTop: '1px solid var(--kaf-border)',
           }}>
-            <p className="kaf-section-head" style={{ marginBottom: 12 }}>Invoice Details</p>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 14 }}>
+            <p className="kaf-section-head" style={{ marginBottom: 14 }}>Invoice Details</p>
+            <div style={{
+              display: 'grid',
+              gridTemplateColumns: 'minmax(120px, 1.1fr) minmax(110px, 1fr) minmax(140px, 1.3fr) minmax(80px, 0.8fr) minmax(80px, 0.8fr) minmax(80px, 0.8fr)',
+              gap: 12,
+            }}>
               <Field label="Company Number">
-                <input className="kaf-input" readOnly value={selected?.companyNumber ?? ''} />
+                <input className="kaf-input" readOnly value={selected?.companyNumber ?? ''} style={{ whiteSpace: 'nowrap' }} />
               </Field>
               <Field label="Invoice Date">
                 <input
@@ -142,36 +163,36 @@ export default function InvoiceDetailsReport() {
                   value={selected ? dateHelpers.formatDisplay(selected.invoiceDate) : ''}
                 />
               </Field>
-              <Field label="Status">
-                <input className="kaf-input" readOnly value={selected?.status ?? ''} />
-              </Field>
               <Field label="EGP Amount">
                 <input
                   className="kaf-input"
                   readOnly
-                  value={selected ? selected.egpAmount.toLocaleString() : ''}
+                  value={formatAmount(selected?.egpAmount)}
                 />
               </Field>
               <Field label="USD Amount">
                 <input
                   className="kaf-input"
                   readOnly
-                  value={selected ? selected.usdAmount.toLocaleString() : ''}
+                  value={formatAmount(selected?.usdAmount)}
                 />
               </Field>
               <Field label="EUR Amount">
                 <input
                   className="kaf-input"
                   readOnly
-                  value={selected ? selected.eurAmount.toLocaleString() : ''}
+                  value={formatAmount(selected?.eurAmount)}
                 />
+              </Field>
+              <Field label="Status">
+                <input className="kaf-input" readOnly value={selected?.status ?? ''} />
               </Field>
             </div>
           </div>
 
           <ReportFeedback error={error} success={success} />
 
-          <button type="button" className="kaf-btn" disabled={loading} onClick={() => void run()} style={{ width: '100%', marginTop: 2 }}>
+          <button type="button" className="kaf-btn" disabled={loading} onClick={() => void run()} style={{ width: '100%', marginTop: 4 }}>
             {loading
               ? <><span className="kaf-spinner" style={{ display: 'inline-block' }} /> Extracting…</>
               : 'Extract Invoice Details'}
@@ -181,4 +202,3 @@ export default function InvoiceDetailsReport() {
     </div>
   );
 }
-
