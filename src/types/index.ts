@@ -259,6 +259,24 @@ export interface EmployeeNumberResponse {
   employeeNumber: string;
 }
 
+export interface AmlMatchResult {
+  source?: string | null;
+  matchName?: string | null;
+  details?: string | null;
+  [key: string]: unknown;
+}
+
+export interface AmlCheckResponse {
+  status: string;
+  totalMatches: number;
+  matches?: AmlMatchResult[];
+}
+
+export interface CreateEmployeeResponse {
+  employee: Employee;
+  amlResult: AmlCheckResponse | null;
+}
+
 export interface EmployeeSummary {
   employeeNumber: string;
   fullName: string;

@@ -1,4 +1,4 @@
-import type { CreateEmployeeRequest, Employee, EmployeeNumberResponse } from '../types';
+import type { CreateEmployeeRequest, CreateEmployeeResponse, Employee, EmployeeNumberResponse } from '../types';
 import { extractApiError, http } from './httpClient';
 
 export const employeesApi = {
@@ -38,9 +38,9 @@ export const employeesApi = {
     }
   },
 
-  create: async (req: CreateEmployeeRequest): Promise<Employee> => {
+  create: async (req: CreateEmployeeRequest): Promise<CreateEmployeeResponse> => {
     try {
-      const { data } = await http.post<Employee>('/employee', req);
+      const { data } = await http.post<CreateEmployeeResponse>('/employee', req);
       return data;
     } catch (err) {
       throw new Error(extractApiError(err, 'Failed to add employee.'));

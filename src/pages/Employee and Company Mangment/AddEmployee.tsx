@@ -1,9 +1,10 @@
 import { useEffect, useMemo, useState } from 'react';
 import type { FormEvent, ChangeEvent, ReactNode } from 'react';
 import { motion } from 'framer-motion';
-import { UserPlus } from 'lucide-react';
+import { AlertTriangle, CheckCircle, Shield, UserPlus } from 'lucide-react';
 import PageHeader from '../../components/PageHeader';
-import type { Company, CreateEmployeeRequest } from '../../types';
+import Badge from '../../components/Badge';
+import type { AmlCheckResponse, Company, CreateEmployeeRequest } from '../../types';
 import { companiesApi } from '../../lib/companiesApi';
 import { contributionsApi } from '../../lib/contributionsApi';
 import { employeesApi } from '../../lib/employeesApi';
@@ -96,6 +97,7 @@ export default function AddEmployee() {
   const [s, setS] = useState<FormState>(emptyState());
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
+  const [amlResult, setAmlResult] = useState<AmlCheckResponse | null>(null);
   const [companies, setCompanies] = useState<Company[]>([]);
   const [companiesLoading, setCompaniesLoading] = useState(false);
   const [categories, setCategories] = useState<string[]>([]);
@@ -200,6 +202,7 @@ export default function AddEmployee() {
     setS(emptyState());
     setError(null);
     setSuccess(null);
+    setAmlResult(null);
   };
 
   const handleSubmit = async (e: FormEvent) => {
@@ -278,12 +281,14 @@ export default function AddEmployee() {
 
     setLoading(true);
     try {
-      const result = await employeesApi.create(payload);
+      const response = await employeesApi.create(payload);
+      const result = response.employee;
       setS((prev) => ({
         ...prev,
         employeeId: String(result.employeeId),
         employeeNumber: result.employeeNumber,
       }));
+      setAmlResult(response.amlResult);
       setSuccess(`Employee ${result.employeeNumber} (ID: ${result.employeeId}) added successfully.`);
     } catch (err) {
       setError(extractApiError(err, 'Failed to add employee.'));
@@ -316,6 +321,7 @@ export default function AddEmployee() {
             {success}
           </div>
         )}
+        {success && <AmlResultPanel result={amlResult} />}
 
         <div
           style={{
@@ -746,6 +752,124 @@ function WeightField({ label, value, onChange, required, readOnly, disabled }: W
           %
         </span>
       </div>
+    </div>
+  );
+}
+
+interface AmlResultPanelProps {
+  result: AmlCheckResponse | null;
+}
+
+function AmlResultPanel({ result }: AmlResultPanelProps) {
+  const isClear = result?.status?.toUpperCase() === 'CLEAR';
+  const hasMatches = (result?.totalMatches ?? 0) > 0;
+
+  return (
+    <div
+      className="kaf-card"
+      style={{
+        marginBottom: 24,
+        padding: 20,
+        borderLeft: `4px solid ${isClear ? 'var(--kaf-success)' : hasMatches ? 'var(--kaf-error)' : 'var(--kaf-warning)'}`,
+        background: 'var(--kaf-surface-2)',
+      }}
+    >
+      <div
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: 12,
+          marginBottom: 14,
+          paddingBottom: 12,
+          borderBottom: '1px solid var(--kaf-border)',
+        }}
+      >
+        <Shield size={20} color={isClear ? 'var(--kaf-success)' : hasMatches ? 'var(--kaf-error)' : 'var(--kaf-warning)'} />
+        <h3 style={{ margin: 0, fontSize: 15, fontWeight: 700, color: 'var(--kaf-text)' }}>
+          AML Screening Result
+        </h3>
+        {result ? (
+          <Badge variant={isClear ? 'clear' : hasMatches ? 'flagged' : 'pending'}>
+            {result.status}
+          </Badge>
+        ) : (
+          <Badge variant="pending">Unavailable</Badge>
+        )}
+      </div>
+
+      {!result && (
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, color: 'var(--kaf-warning)' }}>
+          <AlertTriangle size={16} />
+          <span>AML check could not be performed, but the employee was saved.</span>
+        </div>
+      )}
+
+      {result && (
+        <div style={{ display: 'grid', gap: 16 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 16 }}>
+            <AmlStat label="Status" value={result.status} />
+            <AmlStat label="Total Matches" value={String(result.totalMatches)} />
+          </div>
+
+          {isClear && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, color: 'var(--kaf-success)' }}>
+              <CheckCircle size={16} />
+              <span>No matches found. Employee is clear.</span>
+            </div>
+          )}
+
+          {hasMatches && result.matches && result.matches.length > 0 && (
+            <div>
+              <h4 style={{ margin: '0 0 8px', fontSize: 12, color: 'var(--kaf-muted)', textTransform: 'uppercase', letterSpacing: 1 }}>
+                Matches
+              </h4>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                {result.matches.map((match, idx) => (
+                  <div
+                    key={idx}
+                    style={{
+                      padding: 12,
+                      borderRadius: 8,
+                      background: 'var(--kaf-surface-3)',
+                      border: '1px solid var(--kaf-border-2)',
+                    }}
+                  >
+                    <div style={{ fontWeight: 600, color: 'var(--kaf-text)', marginBottom: 4 }}>
+                      {match.matchName || 'Unnamed match'}
+                    </div>
+                    {match.source && (
+                      <div style={{ fontSize: 12, color: 'var(--kaf-muted)' }}>
+                        Source: {match.source}
+                      </div>
+                    )}
+                    {match.details && (
+                      <div style={{ fontSize: 12, color: 'var(--kaf-muted)', marginTop: 4 }}>
+                        {match.details}
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+interface AmlStatProps {
+  label: string;
+  value: string;
+}
+
+function AmlStat({ label, value }: AmlStatProps) {
+  return (
+    <div>
+      <div style={{ fontSize: 11, color: 'var(--kaf-muted)', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 4 }}>
+        {label}
+      </div>
+      <div style={{ fontSize: 15, fontWeight: 700, color: 'var(--kaf-text)' }}>{value}</div>
     </div>
   );
 }
